@@ -171,9 +171,9 @@ def _main(encountersStart: int, ser: serial.Serial) -> Generator[int, None, None
 
 if __name__ == "__main__":
 	raise SystemExit(
-     lib.mainRunner(
-      "./shinyGrind.json",
-      "randomEncounters",
-      _main,
-     ),
- )
+		lib.mainRunner(
+			"./shinyGrind.json",
+			"randomEncounters",
+			_main,
+		),
+	)
