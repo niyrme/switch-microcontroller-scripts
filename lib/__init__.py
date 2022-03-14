@@ -287,7 +287,7 @@ def mainRunner2(jsonPath: str, encountersKey: str, mainFn: T_FN, parser: argpars
 	print(f"start encounters: {encounters}")
 
 	try:
-		encounters = _mainRunner(serialPort, encounters, mainFn, args)
+		encounters = _mainRunner(serialPort, encounters, mainFn, **args.__dict__)
 	except StopRun:
 		print("\033c", end="")
 	except serial.SerialException as e:
