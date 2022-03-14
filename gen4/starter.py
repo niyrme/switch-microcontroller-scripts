@@ -126,10 +126,10 @@ if __name__ == "__main__":
 	parser.add_argument("starter", type=int, choices={1, 2, 3}, help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
 
 	raise SystemExit(
-     lib.mainRunner2(
-      "./shinyGrind.json",
-      "starterReset",
-      _main,
-      parser,
-     ),
- )
+		lib.mainRunner2(
+			"./shinyGrind.json",
+			"starterReset",
+			_main,
+			parser,
+		),
+	)
