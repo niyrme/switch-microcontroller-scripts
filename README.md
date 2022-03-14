@@ -17,7 +17,7 @@ A repo containing my scripts running on the base of [this](https://github.com/as
 
 # Script list
 
-## General
+## General Pokémon
 - `shiny_grind.py` for running around up-down or left-right
 
 ## Pokémon Brilliant Diamon/Shining Pearl
