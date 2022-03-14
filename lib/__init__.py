@@ -250,7 +250,7 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: T_FN):
 						pass
 
 					while True:
-						cmd = input("continue? (y/n)")
+						cmd = input("continue? (y/n)").strip().lower()
 						if cmd in ("y", "yes"):
 							break
 						elif cmd in ("n", "no"):
@@ -270,6 +270,8 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: T_FN):
 
 
 def mainRunner2(jsonPath: str, encountersKey: str, mainFn: T_FN, parser: argparse.ArgumentParser = None) -> int:
+	args = parser.parse_args() if parser is not None else dict()
+
 	jsn, encounters = jsonGetDefault(
 		loadJson(jsonPath),
 		encountersKey,
@@ -283,11 +285,6 @@ def mainRunner2(jsonPath: str, encountersKey: str, mainFn: T_FN, parser: argpars
 	)
 
 	print(f"start encounters: {encounters}")
-
-	args = dict()
-
-	if parser is not None:
-		args = parser.parse_args()
 
 	try:
 		encounters = _mainRunner(serialPort, encounters, mainFn, args)
