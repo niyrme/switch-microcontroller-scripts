@@ -1,8 +1,10 @@
 import argparse
 import contextlib
 import json
+import os
 import sys
 import time
+import uuid
 from collections.abc import Callable
 from collections.abc import Generator
 from datetime import datetime
@@ -10,14 +12,18 @@ from datetime import timedelta
 from enum import IntEnum
 from typing import Any
 from typing import NamedTuple
+from typing import Optional
 from typing import TypeVar
 
 import cv2
 import numpy
 import serial
+import telegram
+import telegram_send
 
 
-class StopRun(Exception): ...
+class RunStop(Exception): ...
+class RunCrash(Exception): ...
 
 
 class Pos(NamedTuple):
@@ -47,6 +53,29 @@ COLOR_WHITE = Pixel(255, 255, 255)
 
 LOADING_SCREEN_POS = Pos(705, 15)
 
+CFG_NOTIFY: bool = False
+CFG_RENDER: bool = True
+CFG_SEND_ALL_ENCOUNTERS: bool = False
+
+MAINRUNNER_FUNCTION = Callable[[serial.Serial, cv2.VideoCapture, int], tuple[int, ReturnCode, numpy.ndarray]]
+
+
+def sendTelegram(**kwargs) -> None:
+	if CFG_NOTIFY is True:
+		try:
+			telegram_send.send(**kwargs)
+		except telegram.error.NetworkError:
+			print("telegram_send: connection failed", file=sys.stderr)
+
+
+def sendMsg(msg: str) -> None:
+	sendTelegram(messages=(msg,))
+
+
+def sendImg(imgPath: str) -> None:
+	with open(imgPath, "rb") as img:
+		sendTelegram(images=(img,))
+
 
 def alarm(ser: serial.Serial, vid: cv2.VideoCapture) -> None:
 	for _ in range(3):
@@ -60,21 +89,19 @@ def press(ser: serial.Serial, vid: cv2.VideoCapture, s: str, duration: float = .
 	print(f"{datetime.now().strftime('%H:%M:%S')} '{s}' for {duration} {PAD}\r", end="")
 
 	ser.write(s.encode())
-	if duration >= 0.1:
-		tEnd = time.time() + duration
-		while tEnd > time.time():
-			getframe(vid)
-	else:
-		time.sleep(duration)
+	time.sleep(duration)
 	ser.write(b"0")
 	time.sleep(.075)
 
 
-def getframe(vid: cv2.VideoCapture, windowName = "Pokermans") -> numpy.ndarray:
+def getframe(vid: cv2.VideoCapture) -> numpy.ndarray:
 	_, frame = vid.read()
-	cv2.imshow(windowName, frame)
+
+	if CFG_RENDER is True:
+		cv2.imshow("Pokermans", frame)
+
 	if cv2.waitKey(1) & 0xFF == ord("q"):
-		raise SystemExit(0)
+		raise RunStop
 	else:
 		return frame
 
@@ -137,6 +164,31 @@ def resetGame(ser: serial.Serial, vid: cv2.VideoCapture) -> None:
 	press(ser, vid, "A")
 
 
+def checkShinyDialog(ser: serial.Serial, vid: cv2.VideoCapture, dialogPos: Pos, dialogColor: Pixel, delay: float = 2.0) -> tuple[ReturnCode, numpy.ndarray]:
+	awaitPixel(ser, vid, pos=dialogPos, pixel=dialogColor)
+	print(f"dialog start{PAD}\r", end="")
+
+	encounterFrame = getframe(vid)
+
+	crashed = False
+	crashed |= not awaitNotPixel(ser, vid, pos=dialogPos, pixel=dialogColor)
+	print(f"dialog end{PAD}\r", end="")
+	t0 = time.time()
+
+	crashed |= not awaitPixel(ser, vid, pos=dialogPos, pixel=dialogColor)
+	t1 = time.time()
+
+	diff = t1 - t0
+	print(f"dialog delay: {diff:.3f}s{PAD}")
+
+	waitAndRender(vid, 0.5)
+
+	if diff >= 89 or crashed is True:
+		raise RunCrash
+
+	return (ReturnCode.SHINY if 10 > diff > delay else ReturnCode.OK, encounterFrame)
+
+
 def loadJson(filePath: str) -> dict:
 	with open(filePath, "r+") as f:
 		data: dict = json.load(f)
@@ -178,7 +230,7 @@ def mainRunner(jsonPath: str, encountersKey: str, mainFn: Callable[[int, serial.
 		with serial.Serial(serialPort, 9600) as ser, shh(ser):
 			for e in mainFn(encounters, ser):
 				encounters = e
-	except (KeyboardInterrupt, StopRun):
+	except (KeyboardInterrupt, RunStop):
 		print("\033c", end="")
 	except serial.SerialException as e:
 		print(f"failed to open serial connection: {e}", file=sys.stderr)
@@ -190,9 +242,7 @@ def mainRunner(jsonPath: str, encountersKey: str, mainFn: Callable[[int, serial.
 	return 0
 
 
-T_FN = Callable[[serial.Serial, cv2.VideoCapture, int, dict[str, Any]], tuple[int, ReturnCode]]
-
-def _mainRunner(serialPort: str, encountersStart: int, fn: T_FN):
+def _mainRunner(serialPort: str, encountersStart: int, fn: MAINRUNNER_FUNCTION, fnArgs: dict[str, Any]) -> int:
 	with serial.Serial(serialPort, 9600) as ser, shh(ser):
 		print("setting up cv2. This may take a while...")
 		vid: cv2.VideoCapture = cv2.VideoCapture(0)
@@ -210,6 +260,7 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: T_FN):
 		encounters = encountersStart
 		crashes = 0
 
+		sendMsg("Script started")
 		try:
 			while True:
 				print("\033c", end="")
@@ -217,7 +268,7 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: T_FN):
 				runDelta = datetime.now() - tStart
 				avg = runDelta / (currentEncounters if currentEncounters != 0 else 1)
 
-				# remove microseconds from the timedeltas
+				# remove microseconds so they don't show up as "0:12:34.567890"
 				runDelta = timedelta(days=runDelta.days, seconds=runDelta.seconds)
 				avg = timedelta(days=avg.days, seconds=avg.seconds)
 
@@ -225,8 +276,14 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: T_FN):
 				print(f"encounters:   ({currentEncounters:>03}/{(encounters):>05})")
 				print(f"crashes:      {crashes}\n")
 
-				resetGame(ser, vid)
-				encounters, code = fn(ser, vid, encounters)
+				try:
+					encounters, code, encounterFrame = fn(ser, vid, encounters, **fnArgs)
+				except RunCrash:
+					press(ser, vid, "A")
+					waitAndRender(vid, 1)
+					press(ser, vid, "A")
+					crashes += 1
+					continue
 
 				if code == ReturnCode.CRASH:
 					press(ser, vid, "A")
@@ -235,6 +292,13 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: T_FN):
 					crashes += 1
 					continue
 				elif code == ReturnCode.SHINY:
+					sendMsg("Found a SHINY!!")
+
+					scrName = f"tempScreenshot{uuid.uuid4()}.png"
+					cv2.imwrite(scrName, encounterFrame)
+					sendImg(scrName)
+					os.remove(scrName)
+
 					ser.write(b"0")
 					print("SHINY!!")
 					print("SHINY!!")
@@ -250,27 +314,49 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: T_FN):
 						pass
 
 					while True:
-						cmd = input("continue? (y/n)").strip().lower()
+						cmd = input("continue? (y/n) ").strip().lower()
 						if cmd in ("y", "yes"):
 							break
 						elif cmd in ("n", "no"):
-							raise StopRun
+							raise RunStop
 						else:
-							print(f"invalid command: {cmd}")
+							print(f"invalid command: {cmd}", file=sys.stderr)
 				elif code == ReturnCode.OK:
+					if CFG_SEND_ALL_ENCOUNTERS is True:
+						scrName = f"tempScreenshot{uuid.uuid4()}.png"
+						cv2.imwrite(scrName, encounterFrame)
+						sendImg(scrName)
+						os.remove(scrName)
 					currentEncounters += 1
 				else:
-					print(f"got invalid return code: {code}")
+					print(f"got invalid return code: {code}", sys.stderr)
 		except (KeyboardInterrupt, EOFError):
-			raise StopRun
+			pass
 		finally:
 			vid.release()
 			cv2.destroyAllWindows()
 			return encounters
 
 
-def mainRunner2(jsonPath: str, encountersKey: str, mainFn: T_FN, parser: argparse.ArgumentParser = None) -> int:
-	args = parser.parse_args() if parser is not None else dict()
+def mainRunner2(jsonPath: str, encountersKey: str, mainFn: MAINRUNNER_FUNCTION, parser: Optional[argparse.ArgumentParser] = None) -> int:
+	global CFG_NOTIFY
+	global CFG_RENDER
+	global CFG_SEND_ALL_ENCOUNTERS
+
+	if parser is None:
+		parser = argparse.ArgumentParser()
+
+	assert isinstance(parser, argparse.ArgumentParser)
+
+	parser.add_argument("-R", "--disable-render", action="store_false", dest="render", help="disable rendering")
+	parser.add_argument("-E", "--send-all-encounters", action="store_true", dest="sendEncounters", help="send a screenshot of all encounters")
+	parser.add_argument("-n", "--notify", action="store_true", dest="notify", help="send notifications over telegram (requires telegram-send to be set up)")
+
+	args = parser.parse_args().__dict__
+
+	CFG_NOTIFY = bool(args.get("notify"))
+	CFG_RENDER = bool(args.get("render"))
+	CFG_SEND_ALL_ENCOUNTERS = bool(args.get("sendEncounters"))
 
 	jsn, encounters = jsonGetDefault(
 		loadJson(jsonPath),
@@ -278,21 +364,22 @@ def mainRunner2(jsonPath: str, encountersKey: str, mainFn: T_FN, parser: argpars
 		0,
 	)
 
-	_, serialPort = jsonGetDefault(
-		loadJson("./config.json"),
-		"serialPort",
-		"COM0",
-	)
+	config = loadJson("./config.json")
+	serialPort = config.get("serialPort", "COM0")
 
 	print(f"start encounters: {encounters}")
 
 	try:
-		encounters = _mainRunner(serialPort, encounters, mainFn, **args.__dict__)
-	except StopRun:
+		encounters = _mainRunner(serialPort, encounters, mainFn, args)
+	except RunStop:
 		print("\033c", end="")
-	except serial.SerialException as e:
-		print(f"failed to open serial connection: {e}", file=sys.stderr)
-		return 1
+	except Exception as e:
+		s = f"Program crashed: {e}"
+		print(s, file=sys.stderr)
+		sendMsg(s)
+		raise
+	else:
+		print("\033c", end="")
 	finally:
 		dumpJson(jsonPath, jsn | { encountersKey: encounters})
 		print(f"saved encounters.. ({encounters}){PAD}\n")
