@@ -1,9 +1,10 @@
 import cv2
 
-from lib import getframe
+import lib
 
 
 def main() -> int:
+	lib.CFG_RENDER = True
 	print("setting up cv2. This may take a while...")
 	vid: cv2.VideoCapture = cv2.VideoCapture(0)
 	vid.set(cv2.CAP_PROP_FPS, 30)
@@ -13,7 +14,7 @@ def main() -> int:
 
 	try:
 		while True:
-			getframe(vid)
+			lib.getframe(vid)
 	except KeyboardInterrupt:
 		pass
 	finally:
