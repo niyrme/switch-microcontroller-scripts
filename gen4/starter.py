@@ -4,6 +4,7 @@ import sys
 import time
 
 import cv2
+import numpy
 import serial
 
 import lib
@@ -21,19 +22,19 @@ SERIAL_DEFAULT = "COM5" if sys.platform == "win32" else "/dev/ttyUSB0"
 
 
 def p(s: str) -> None:
-	print(f"{s}{PAD}\r", end="")
+	print("{s}{PAD}\r", end="")
 
 
-def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode]:
-	starter: int = kwargs.get("starter")
+def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
+	starter = int(kwargs.get("starter"))
 	crashed = False
 
 	# wait for startup screen (black one)
 	crashed |= not lib.awaitPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-	print(f"startup screen", PAD)
+	print("startup screen", PAD)
 
 	crashed |= not lib.awaitNotPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-	print(f"after startup", PAD)
+	print("after startup", PAD)
 
 	# in splash screen
 	lib.waitAndRender(vid, 1)
@@ -44,13 +45,13 @@ def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[
 
 	# loading screen to game
 	crashed |= not lib.awaitPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-	print(f"loading screen", PAD)
+	print("loading screen", PAD)
 	crashed |= not lib.awaitNotPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
 
 	if crashed is True:
-		return (e, ReturnCode.CRASH)
+		raise lib.RunCrash
 
-	print(f"in game", PAD)
+	print("in game", PAD)
 	lib.waitAndRender(vid, 1)
 
 	lib.press(ser, vid, "w", duration=0.5)
@@ -67,7 +68,7 @@ def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[
 		lib.waitAndRender(vid, 2)
 		lib.press(ser, vid, "A")
 
-	p(f"moving to bag")
+	p("moving to bag")
 	lib.waitAndRender(vid, 7)
 	lib.press(ser, vid, "A")
 	lib.waitAndRender(vid, 2)
@@ -80,7 +81,7 @@ def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[
 	lib.press(ser, vid, "A")
 	lib.waitAndRender(vid, 5)
 
-	p(f"selecting starter")
+	p("selecting starter")
 	lib.press(ser, vid, "B")
 	lib.waitAndRender(vid, 2)
 	for _ in range(starter - 1):
@@ -99,26 +100,32 @@ def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[
 	lib.waitAndRender(vid, 5)
 
 	lib.awaitPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
-	p(f"dialog starly (start)")
+	p("dialog starly (start)")
 
 	lib.awaitNotPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
-	p(f"dialog starly (end)")
+	p("dialog starly (end)")
 
 	lib.awaitPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
-	p(f"dialog starter (start)")
+	p("dialog starter (start)")
 
 	lib.awaitNotPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
+
+	encounterFrame = lib.getframe(vid)
+
 	start = time.time()
-	p(f"dialog starter (end)")
+	p("dialog starter (end)")
 
 	lib.awaitPixel(ser, vid, pos=Pos(5, 425), pixel=Pixel(255, 255, 255))
 	diff = time.time() - start
 
 	p(f"dialog delay: {diff:.3f}s{PAD}")
 
+	if diff >= 89:
+		raise lib.RunCrash
+
 	lib.waitAndRender(vid, 0.5)
 
-	return (e + 1, ReturnCode.SHINY if diff > 2 else ReturnCode.OK)
+	return (e + 1, ReturnCode.SHINY if diff > 2 else ReturnCode.OK, encounterFrame)
 
 
 if __name__ == "__main__":
@@ -128,7 +135,7 @@ if __name__ == "__main__":
 	raise SystemExit(
 		lib.mainRunner2(
 			"./shinyGrind.json",
-			"starterReset",
+			"starter",
 			_main,
 			parser,
 		),

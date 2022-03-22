@@ -1,8 +1,8 @@
 import sys
-import time
 from argparse import ArgumentParser
 
 import cv2
+import numpy
 import serial
 
 import lib
@@ -17,15 +17,16 @@ from lib.gen4 import ENCOUNTER_DIALOG_POS
 SERIAL_DEFAULT = "COM5" if sys.platform == "win32" else "/dev/ttyUSB0"
 
 
-def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode]:
+def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
+	lib.resetGame(ser, vid)
 	crashed = False
 
 	# wait for startup screen (black one)
 	crashed |= not lib.awaitPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-	print(f"startup screen", PAD)
+	print("startup screen", PAD)
 
 	crashed |= not lib.awaitNotPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-	print(f"after startup", PAD)
+	print("after startup", PAD)
 
 	# in splash screen
 	lib.waitAndRender(vid, 1)
@@ -36,13 +37,13 @@ def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[
 
 	# loading screen to game
 	crashed |= not lib.awaitPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-	print(f"loading screen", PAD)
+	print("loading screen", PAD)
 	crashed |= not lib.awaitNotPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
 
 	if crashed is True:
-		return (e, ReturnCode.CRASH)
+		raise lib.RunCrash
 
-	print(f"in game", PAD)
+	print("in game", PAD)
 	lib.waitAndRender(vid, 1)
 
 	lib.press(ser, vid, "A")
@@ -54,28 +55,15 @@ def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[
 	lib.awaitNotPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_WHITE)
 
 	# encounter dialog
-	lib.awaitPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
-	print(f"legendary dialog start{PAD}\r", end="")
-	lib.awaitNotPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
-	print(f"legendary dialog end{PAD}\r", end="")
-	t0 = time.time()
-
-	lib.awaitPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
-	t1 = time.time()
-
-	diff = t1 - t0
-	print(f"dialog delay: {diff:.3f}s{PAD}")
-
-	lib.waitAndRender(vid, 0.5)
-
-	return (e + 1, ReturnCode.SHINY if diff > 1.5 else ReturnCode.OK)
+	rc, encounterFrame = lib.checkShinyDialog(ser, vid, ENCOUNTER_DIALOG_POS, COLOR_WHITE, 1.5)
+	return (e + 1, rc, encounterFrame)
 
 
 if __name__ == "__main__":
 	raise SystemExit(
 		lib.mainRunner2(
 			"./shinyGrind.json",
-			"pixieEncounter",
+			"pixie",
 			_main,
 			ArgumentParser(description="reset Uxie or Azelf automatically"),
 		),
