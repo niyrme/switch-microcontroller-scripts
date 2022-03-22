@@ -17,10 +17,8 @@ A repo containing my scripts running on the base of [this](https://github.com/as
 
 # Script list
 
-## General Pokémon
-- `shiny_grind` for running around up-down or left-right
-
 ## Pokémon Brilliant Diamon/Shining Pearl
+- `gen4.shiny_grind` for running around up-down or left-right
 - `gen4.pixie` for resetting 2 of the 3 pixies (Uxie and Azelf)
 	- not Mesprit because it roams around the map
 - `gen4.legendary` for Dialga/Palkia

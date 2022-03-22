@@ -137,7 +137,7 @@ def _main(encountersStart: int, ser: serial.Serial) -> Generator[int, None, None
 			if cmd in ("y", "yes"):
 				continue
 			else:
-				raise lib.StopRun
+				raise lib.RunStop
 
 		# wait until own dialog box appears
 		lib.awaitPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
