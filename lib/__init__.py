@@ -64,8 +64,8 @@ def sendTelegram(**kwargs) -> None:
 	if CFG_NOTIFY is True:
 		try:
 			telegram_send.send(**kwargs)
-		except telegram.error.NetworkError:
-			print("telegram_send: connection failed", file=sys.stderr)
+		except telegram.error.NetworkError as e:
+			print(f"telegram_send: connection failed: {e}", file=sys.stderr)
 
 
 def sendMsg(msg: str) -> None:
@@ -146,6 +146,44 @@ def awaitNotPixel(
 	return True
 
 
+def whilePixel(
+	ser: serial.Serial,
+	vid: cv2.VideoCapture,
+	pos: Pos,
+	pixel: Pixel,
+	delay: float,
+	fn: Callable[..., Any],
+	fnArgs: dict[str, Any],
+) -> None:
+	fnArgs |= {"ser": ser, "vid": vid}
+	frame = getframe(vid)
+	tEnd = time.time() + delay
+	while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl()):
+		if time.time() > tEnd:
+			fn(**fnArgs)
+			tEnd = time.time() + delay
+		frame = getframe(vid)
+
+
+def whileNotPixel(
+	ser: serial.Serial,
+	vid: cv2.VideoCapture,
+	pos: Pos,
+	pixel: Pixel,
+	delay: float,
+	fn: Callable[..., Any],
+	fnArgs: dict[str, Any],
+) -> None:
+	fnArgs |= {"ser": ser, "vid": vid}
+	frame = getframe(vid)
+	tEnd = time.time() + delay
+	while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl()):
+		if time.time() > tEnd:
+			fn(**fnArgs)
+			tEnd = time.time() + delay
+		frame = getframe(vid)
+
+
 @contextlib.contextmanager
 def shh(ser: serial.Serial) -> Generator[None, None, None]:
 	try: yield
@@ -218,11 +256,8 @@ def mainRunner(jsonPath: str, encountersKey: str, mainFn: Callable[[int, serial.
 		0,
 	)
 
-	_, serialPort = jsonGetDefault(
-		loadJson("./config.json"),
-		"serialPort",
-		"COM0",
-	)
+	config = loadJson("./config.json")
+	serialPort = config.get("serialPort", "COM0")
 
 	print(f"start encounters: {encounters}")
 
