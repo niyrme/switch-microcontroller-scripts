@@ -85,7 +85,7 @@ def alarm(ser: serial.Serial, vid: cv2.VideoCapture) -> None:
 		waitAndRender(vid, 0.4)
 
 
-def press(ser: serial.Serial, vid: cv2.VideoCapture, s: str, duration: float = .05) -> None:
+def press(ser: serial.Serial, vid: cv2.VideoCapture, s: str, duration: float = .05) -> None:  # dead: disable
 	print(f"{datetime.now().strftime('%H:%M:%S')} '{s}' for {duration} {PAD}\r", end="")
 
 	ser.write(s.encode())
@@ -113,7 +113,7 @@ def waitAndRender(vid: cv2.VideoCapture, t: float) -> None:
 
 
 def awaitPixel(
-	ser: serial.Serial,
+	ser: serial.Serial,  # dead: disable
 	vid: cv2.VideoCapture,
 	*,
 	pos: Pos,
@@ -130,7 +130,7 @@ def awaitPixel(
 
 
 def awaitNotPixel(
-	ser: serial.Serial,
+	ser: serial.Serial,  # dead: disable
 	vid: cv2.VideoCapture,
 	*,
 	pos: Pos,
@@ -146,7 +146,7 @@ def awaitNotPixel(
 	return True
 
 
-def whilePixel(
+def whilePixel(  # dead: disable
 	ser: serial.Serial,
 	vid: cv2.VideoCapture,
 	pos: Pos,
@@ -165,7 +165,7 @@ def whilePixel(
 		frame = getframe(vid)
 
 
-def whileNotPixel(
+def whileNotPixel(  # dead: disable
 	ser: serial.Serial,
 	vid: cv2.VideoCapture,
 	pos: Pos,
@@ -389,9 +389,9 @@ def mainRunner2(jsonPath: str, encountersKey: str, mainFn: MAINRUNNER_FUNCTION, 
 
 	args = parser.parse_args().__dict__
 
-	CFG_NOTIFY = bool(args.get("notify"))
-	CFG_RENDER = bool(args.get("render"))
-	CFG_SEND_ALL_ENCOUNTERS = bool(args.get("sendEncounters"))
+	CFG_NOTIFY = bool(args.get("notify"))  # dead: disable
+	CFG_RENDER = bool(args.get("render"))  # dead: disable
+	CFG_SEND_ALL_ENCOUNTERS = bool(args.get("sendEncounters"))  # dead: disable
 
 	jsn, encounters = jsonGetDefault(
 		loadJson(jsonPath),

@@ -12,7 +12,7 @@ from lib.gen4 import awaitInGame
 from lib.gen4 import ENCOUNTER_DIALOG_POS
 
 
-def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
+def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 	lib.resetGame(ser, vid)
 	awaitInGame(ser, vid)
 

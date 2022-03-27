@@ -1,4 +1,3 @@
-import sys
 from argparse import ArgumentParser
 
 import cv2
@@ -13,10 +12,7 @@ from lib.gen4 import awaitInGame
 from lib.gen4 import ENCOUNTER_DIALOG_POS
 
 
-SERIAL_DEFAULT = "COM5" if sys.platform == "win32" else "/dev/ttyUSB0"
-
-
-def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
+def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 	lib.resetGame(ser, vid)
 	awaitInGame(ser, vid)
 

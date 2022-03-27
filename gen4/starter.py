@@ -17,7 +17,7 @@ from lib.gen4 import ENCOUNTER_DIALOG_POS
 
 
 def p(s: str) -> None:
-	print("{s}{PAD}\r", end="")
+	print(f"{s}{PAD}\r", end="")
 
 
 def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
