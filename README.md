@@ -1,3 +1,5 @@
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/niyrme/switch-microcontroller-scripts/main.svg)](https://results.pre-commit.ci/latest/github/niyrme/switch-microcontroller-scripts/main)
+
 # switch microcontroller scripts
 
 A repo containing my scripts running on the base of [this](https://github.com/asottile/switch-microcontroller)
