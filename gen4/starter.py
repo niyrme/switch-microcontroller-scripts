@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import sys
 import time
 
 import cv2
@@ -8,17 +7,13 @@ import numpy
 import serial
 
 import lib
-from lib import COLOR_BLACK
 from lib import COLOR_WHITE
-from lib import LOADING_SCREEN_POS
 from lib import PAD
 from lib import Pixel
 from lib import Pos
 from lib import ReturnCode
+from lib.gen4 import awaitInGame
 from lib.gen4 import ENCOUNTER_DIALOG_POS
-
-
-SERIAL_DEFAULT = "COM5" if sys.platform == "win32" else "/dev/ttyUSB0"
 
 
 def p(s: str) -> None:
@@ -27,32 +22,8 @@ def p(s: str) -> None:
 
 def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
 	starter = int(kwargs.get("starter"))
-	crashed = False
-
-	# wait for startup screen (black one)
-	crashed |= not lib.awaitPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-	print("startup screen", PAD)
-
-	crashed |= not lib.awaitNotPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-	print("after startup", PAD)
-
-	# in splash screen
-	lib.waitAndRender(vid, 1)
-	lib.press(ser, vid, "A")
-	lib.waitAndRender(vid, 3)
-	lib.press(ser, vid, "A")
-	lib.waitAndRender(vid, 3)
-
-	# loading screen to game
-	crashed |= not lib.awaitPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-	print("loading screen", PAD)
-	crashed |= not lib.awaitNotPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-
-	if crashed is True:
-		raise lib.RunCrash
-
-	print("in game", PAD)
-	lib.waitAndRender(vid, 1)
+	lib.resetGame(ser, vid)
+	awaitInGame(ser, vid)
 
 	lib.press(ser, vid, "w", duration=0.5)
 	lib.waitAndRender(vid, 1)
