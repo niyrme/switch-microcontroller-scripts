@@ -1,6 +1,5 @@
 import argparse
 import os
-import sys
 import time
 from collections.abc import Generator
 from datetime import datetime
@@ -17,8 +16,6 @@ from lib import PAD
 from lib.gen4 import ENCOUNTER_DIALOG_POS
 from lib.gen4 import OWN_POKEMON_POS
 
-
-SERIAL_DEFAULT = "COM5" if sys.platform == "win32" else "/dev/ttyUSB0"
 
 chanceModifier = int
 CHANCE_NORMAL: chanceModifier = 4096
