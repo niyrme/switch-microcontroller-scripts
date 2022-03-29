@@ -8,13 +8,13 @@ import lib
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib import ReturnCode
-from lib.gen4 import awaitInGame
+from lib.gen4 import awaitInGameSpam
 from lib.gen4 import ENCOUNTER_DIALOG_POS
 
 
 def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
 	lib.resetGame(ser, vid)
-	awaitInGame(ser, vid)
+	awaitInGameSpam(ser, vid)
 
 	# walk towards legendary
 	lib.press(ser, vid, "w", duration=0.5)

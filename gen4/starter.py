@@ -12,7 +12,7 @@ from lib import PAD
 from lib import Pixel
 from lib import Pos
 from lib import ReturnCode
-from lib.gen4 import awaitInGame
+from lib.gen4 import awaitInGameSpam
 from lib.gen4 import ENCOUNTER_DIALOG_POS
 
 
@@ -23,7 +23,7 @@ def p(s: str) -> None:
 def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
 	starter = int(kwargs.get("starter"))
 	lib.resetGame(ser, vid)
-	awaitInGame(ser, vid)
+	awaitInGameSpam(ser, vid)
 
 	lib.press(ser, vid, "w", duration=0.5)
 	lib.waitAndRender(vid, 1)
