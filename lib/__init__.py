@@ -56,6 +56,7 @@ LOADING_SCREEN_POS = Pos(705, 15)
 CFG_NOTIFY: bool = False
 CFG_RENDER: bool = True
 CFG_SEND_ALL_ENCOUNTERS: bool = False
+CFG_CATCH_CRASH: bool = False
 
 MAINRUNNER_FUNCTION = Callable[[serial.Serial, cv2.VideoCapture, int], tuple[int, ReturnCode, numpy.ndarray]]
 
@@ -75,6 +76,13 @@ def sendMsg(msg: str) -> None:
 def sendImg(imgPath: str) -> None:
 	with open(imgPath, "rb") as img:
 		sendTelegram(images=(img,))
+
+
+def sendScreenshot(image: numpy.ndarray) -> None:
+	scrName = f"tempScreenshot{uuid.uuid4()}.png"
+	cv2.imwrite(scrName, image)
+	sendImg(scrName)
+	os.remove(scrName)
 
 
 def alarm(ser: serial.Serial, vid: cv2.VideoCapture) -> None:
@@ -152,15 +160,13 @@ def whilePixel(
 	pos: Pos,
 	pixel: Pixel,
 	delay: float,
-	fn: Callable[..., Any],
-	fnArgs: dict[str, Any],
+	fn: Callable[[], None],
 ) -> None:
-	fnArgs |= {"ser": ser, "vid": vid}
 	frame = getframe(vid)
 	tEnd = time.time() + delay
 	while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl()):
 		if time.time() > tEnd:
-			fn(**fnArgs)
+			fn()
 			tEnd = time.time() + delay
 		frame = getframe(vid)
 
@@ -171,15 +177,13 @@ def whileNotPixel(
 	pos: Pos,
 	pixel: Pixel,
 	delay: float,
-	fn: Callable[..., Any],
-	fnArgs: dict[str, Any],
+	fn: Callable[[], None],
 ) -> None:
-	fnArgs |= {"ser": ser, "vid": vid}
 	frame = getframe(vid)
 	tEnd = time.time() + delay
 	while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl()):
 		if time.time() > tEnd:
-			fn(**fnArgs)
+			fn()
 			tEnd = time.time() + delay
 		frame = getframe(vid)
 
@@ -314,6 +318,14 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: MAINRUNNER_FUNCTION, 
 				try:
 					encounters, code, encounterFrame = fn(ser, vid, encounters, **fnArgs)
 				except RunCrash:
+					if CFG_CATCH_CRASH is True:
+						print("\a")
+						sendMsg("script crashed!")
+						try:
+							while True:
+								waitAndRender(vid, 5)
+						except KeyboardInterrupt:
+							pass
 					press(ser, vid, "A")
 					waitAndRender(vid, 1)
 					press(ser, vid, "A")
@@ -329,10 +341,7 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: MAINRUNNER_FUNCTION, 
 				elif code == ReturnCode.SHINY:
 					sendMsg("Found a SHINY!!")
 
-					scrName = f"tempScreenshot{uuid.uuid4()}.png"
-					cv2.imwrite(scrName, encounterFrame)
-					sendImg(scrName)
-					os.remove(scrName)
+					sendScreenshot(encounterFrame)
 
 					ser.write(b"0")
 					print("SHINY!!")
@@ -357,12 +366,9 @@ def _mainRunner(serialPort: str, encountersStart: int, fn: MAINRUNNER_FUNCTION, 
 						else:
 							print(f"invalid command: {cmd}", file=sys.stderr)
 				elif code == ReturnCode.OK:
-					if CFG_SEND_ALL_ENCOUNTERS is True:
-						scrName = f"tempScreenshot{uuid.uuid4()}.png"
-						cv2.imwrite(scrName, encounterFrame)
-						sendImg(scrName)
-						os.remove(scrName)
 					currentEncounters += 1
+					if CFG_SEND_ALL_ENCOUNTERS is True:
+						sendScreenshot(encounterFrame)
 				else:
 					print(f"got invalid return code: {code}", sys.stderr)
 		except (KeyboardInterrupt, EOFError):
@@ -377,6 +383,7 @@ def mainRunner2(jsonPath: str, encountersKey: str, mainFn: MAINRUNNER_FUNCTION, 
 	global CFG_NOTIFY
 	global CFG_RENDER
 	global CFG_SEND_ALL_ENCOUNTERS
+	global CFG_CATCH_CRASH
 
 	if parser is None:
 		parser = argparse.ArgumentParser()
@@ -386,12 +393,14 @@ def mainRunner2(jsonPath: str, encountersKey: str, mainFn: MAINRUNNER_FUNCTION, 
 	parser.add_argument("-R", "--disable-render", action="store_false", dest="render", help="disable rendering")
 	parser.add_argument("-E", "--send-all-encounters", action="store_true", dest="sendEncounters", help="send a screenshot of all encounters")
 	parser.add_argument("-n", "--notify", action="store_true", dest="notify", help="send notifications over telegram (requires telegram-send to be set up)")
+	parser.add_argument("-C", "--catch-crash", action="store_true", dest="catchCrash", help="pause program if game crashed")
 
 	args = parser.parse_args().__dict__
 
 	CFG_NOTIFY = bool(args.get("notify"))
 	CFG_RENDER = bool(args.get("render"))
 	CFG_SEND_ALL_ENCOUNTERS = bool(args.get("sendEncounters"))
+	CFG_CATCH_CRASH = bool(args.get("catchCrash"))
 
 	jsn, encounters = jsonGetDefault(
 		loadJson(jsonPath),
@@ -401,6 +410,12 @@ def mainRunner2(jsonPath: str, encountersKey: str, mainFn: MAINRUNNER_FUNCTION, 
 
 	config = loadJson("./config.json")
 	serialPort = config.get("serialPort", "COM0")
+	print("Config:", PAD)
+	print(f"   Serial Port         = {serialPort}")
+	print(f"   Render              = {CFG_RENDER}")
+	print(f"   Notify Telegram     = {CFG_NOTIFY}")
+	print(f"   Send All Encounters = {CFG_SEND_ALL_ENCOUNTERS}")
+	print(f"   Catch Crashes       = {CFG_CATCH_CRASH}")
 
 	print(f"start encounters: {encounters}")
 
