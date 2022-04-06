@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-import argparse
 import time
 
 import cv2
@@ -9,105 +7,74 @@ import serial
 import lib
 from lib import COLOR_WHITE
 from lib import PAD
-from lib import Pixel
-from lib import Pos
 from lib import ReturnCode
+from lib import Script
 from lib.gen4 import awaitInGameSpam
 from lib.gen4 import ENCOUNTER_DIALOG_POS
+from lib.gen4 import OWN_POKEMON_POS
 
 
 def p(s: str) -> None:
 	print(f"{s}{PAD}\r", end="")
 
 
-def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
-	starter = int(kwargs.get("starter"))
-	lib.resetGame(ser, vid)
-	awaitInGameSpam(ser, vid)
+class StarterScript(Script):
+	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
+		super().__init__(ser, vid, **kwargs)
 
-	lib.press(ser, vid, "w", duration=0.5)
-	lib.waitAndRender(vid, 1)
+		self.starter = int(kwargs.get("starter"))
 
-	# bunch of dialog here
-	for _ in range(12):
-		lib.waitAndRender(vid, 2)
-		lib.press(ser, vid, "A")
-	for _ in range(4):
-		lib.waitAndRender(vid, 5.5)
-		lib.press(ser, vid, "A")
-	for _ in range(3):
-		lib.waitAndRender(vid, 2)
-		lib.press(ser, vid, "A")
+	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+		self.resetGame()
+		awaitInGameSpam(self._ser, self._vid)
 
-	p("moving to bag")
-	lib.waitAndRender(vid, 7)
-	lib.press(ser, vid, "A")
-	lib.waitAndRender(vid, 2)
-	lib.press(ser, vid, "A")
-	lib.waitAndRender(vid, 2)
-	lib.press(ser, vid, "A")
-	lib.waitAndRender(vid, 5)
-	lib.press(ser, vid, "A")
-	lib.waitAndRender(vid, 2)
-	lib.press(ser, vid, "A")
-	lib.waitAndRender(vid, 5)
+		self.press("w", 0.5)
+		self.waitAndRender(1)
 
-	p("selecting starter")
-	lib.press(ser, vid, "B")
-	lib.waitAndRender(vid, 2)
-	for _ in range(starter - 1):
-		lib.press(ser, vid, "d", duration=0.2)
-		lib.waitAndRender(vid, 1)
+		for _ in range(12):
+			self.waitAndRender(2)
+			self.press("A")
+		for _ in range(4):
+			self.waitAndRender(5.5)
+			self.press("A")
+		for _ in range(3):
+			self.waitAndRender(2)
+			self.press("A")
 
-	lib.press(ser, vid, "A")
-	lib.waitAndRender(vid, 2)
-	lib.press(ser, vid, "w")
-	lib.waitAndRender(vid, 0.5)
-	lib.press(ser, vid, "A")
+		p("move to bag")
+		for v in (7, 2, 2, 5, 2, 5):
+			self.waitAndRender(v)
+			self.press("A")
 
-	lib.awaitPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=Pixel(255, 255, 255))
-	lib.awaitNotPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=Pixel(255, 255, 255))
+		p("select starter")
+		self.press("B")
+		self.waitAndRender(2)
+		for _ in range(self.starter - 1):
+			self.press("d", duration=0.2)
+			self.waitAndRender(1)
 
-	lib.waitAndRender(vid, 5)
+		self.press("A")
+		self.waitAndRender(2)
+		self.press("w")
+		self.waitAndRender(0.5)
+		self.press("A")
 
-	lib.awaitPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
-	p("dialog starly (start)")
+		self.awaitFlash(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 
-	lib.awaitNotPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
-	p("dialog starly (end)")
+		self.waitAndRender(5)
 
-	lib.awaitPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
-	p("dialog starter (start)")
+		self.awaitFlash(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
+		self.awaitFlash(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 
-	lib.awaitNotPixel(ser, vid, pos=ENCOUNTER_DIALOG_POS, pixel=COLOR_WHITE)
+		encounterFrame = self.getframe()
 
-	encounterFrame = lib.getframe(vid)
+		t0 = time.time()
+		crash = self.awaitPixel(OWN_POKEMON_POS, COLOR_WHITE)
+		diff = time.time() - t0
 
-	start = time.time()
-	p("dialog starter (end)")
+		print(f"dialog delay: {diff:.3f}s", PAD)
 
-	lib.awaitPixel(ser, vid, pos=Pos(5, 425), pixel=Pixel(255, 255, 255))
-	diff = time.time() - start
+		if diff >= 89 or crash is True:
+			raise lib.RunCrash
 
-	p(f"dialog delay: {diff:.3f}s{PAD}")
-
-	if diff >= 89:
-		raise lib.RunCrash
-
-	lib.waitAndRender(vid, 0.5)
-
-	return (e + 1, ReturnCode.SHINY if diff > 2 else ReturnCode.OK, encounterFrame)
-
-
-if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="reset a specific starter until it's shiny")
-	parser.add_argument("starter", type=int, choices={1, 2, 3}, help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
-
-	raise SystemExit(
-		lib.mainRunner2(
-			"./shinyGrind.json",
-			"starter",
-			_main,
-			parser,
-		),
-	)
+		return (e + 1, ReturnCode.SHINY if 15 > diff > 2 else ReturnCode.OK, encounterFrame)

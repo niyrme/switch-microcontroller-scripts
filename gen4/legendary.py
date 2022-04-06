@@ -1,49 +1,35 @@
-from argparse import ArgumentParser
-
-import cv2
 import numpy
-import serial
 
-import lib
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib import ReturnCode
+from lib import Script
 from lib.gen4 import awaitInGameSpam
 from lib.gen4 import ENCOUNTER_DIALOG_POS
 
 
-def _main(ser: serial.Serial, vid: cv2.VideoCapture, e: int, **kwargs) -> tuple[int, ReturnCode, numpy.ndarray]:
-	lib.resetGame(ser, vid)
-	awaitInGameSpam(ser, vid)
+class LegendaryScript(Script):
+	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+		self.resetGame()
+		awaitInGameSpam(self._ser, self._vid)
 
-	# walk towards legendary
-	lib.press(ser, vid, "w", duration=0.5)
-	lib.waitAndRender(vid, 2)
-	lib.press(ser, vid, "B")
-	lib.waitAndRender(vid, 0.5)
-	lib.press(ser, vid, "B")
-	lib.waitAndRender(vid, 0.5)
-	lib.press(ser, vid, "B")
+		# walk towards legendary
+		self.press("w", duration=0.5)
+		self.waitAndRender(2)
+		self.press("B")
+		self.waitAndRender(0.5)
+		self.press("B")
+		self.waitAndRender(0.5)
+		self.press("B")
 
-	# flash to enter battle
-	lib.awaitPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_WHITE)
-	lib.awaitNotPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_WHITE)
+		# flash to enter battle
+		self.awaitPixel(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
 
-	# flash inside battle
-	lib.awaitPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_WHITE)
-	lib.awaitNotPixel(ser, vid, pos=LOADING_SCREEN_POS, pixel=COLOR_WHITE)
+		# flash inside battle
+		self.awaitPixel(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
 
-	# encounter dialog
-	rc, encounterFrame = lib.checkShinyDialog(ser, vid, ENCOUNTER_DIALOG_POS, COLOR_WHITE, 1.5)
-	return (e + 1, rc, encounterFrame)
-
-
-if __name__ == "__main__":
-	raise SystemExit(
-		lib.mainRunner2(
-			"./shinyGrind.json",
-			"legendary",
-			_main,
-			ArgumentParser(description="reset Dialga or Palkia automatically"),
-		),
-	)
+		# encounter dialog
+		rc, encounterFrame = self.checkShinyDialog(ENCOUNTER_DIALOG_POS, COLOR_WHITE, 1.5)
+		return (e + 1, rc, encounterFrame)

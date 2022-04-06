@@ -13,15 +13,18 @@ A repo containing my scripts running on the base of [this](https://github.com/as
 # How to use
 1. Rename `sample.config.json` to `config.json`
 2. Update the `serialPort` in `config.json` to the desired serial port
-3. Run any of the scripts as python modules: `python3 -m gen4.legendary`
-	- add `-h` or `--help` as an argument to get a bit more info about each file (example: `python3 -m gen4.pixie --help`)
+3. Run any of the scripts as python modules: `python3 -m gen4`
+	- add `-h` or `--help` as an argument to get a bit more info about each file (example: `python3 -m gen4 --help`)
 
 
 # Script list
 
 ## Pokémon Brilliant Diamon/Shining Pearl
-- `gen4.shiny_grind` for running around up-down or left-right
-- `gen4.pixie` for resetting 2 of the 3 pixies (Uxie and Azelf)
+Run as `python3 -m gen4 <script>` (or add `-h`/`--help` flag for more info)
+- `cresselia` for Cresselia [WIP]
+- `legendary` for Dialga/Palkia
+- `pixie` for Uxie and Azelf
 	- not Mesprit because it roams around the map
-- `gen4.legendary` for Dialga/Palkia
-- `gen4.starter` for resetting the starter pokemon
+- `random` for random encounters in orthogonal directions
+- `shaymin` for Shaymin
+- `starter` for a starter

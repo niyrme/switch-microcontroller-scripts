@@ -1,18 +1,15 @@
-import argparse
 import contextlib
 import json
 import os
 import sys
 import time
 import uuid
+from abc import abstractmethod
 from collections.abc import Callable
 from collections.abc import Generator
 from datetime import datetime
-from datetime import timedelta
 from enum import IntEnum
-from typing import Any
 from typing import NamedTuple
-from typing import Optional
 from typing import TypeVar
 
 import cv2
@@ -36,6 +33,7 @@ class Pixel(NamedTuple):
 	g: int
 	b: int
 
+	@property
 	def tpl(self) -> tuple[int, int, int]:
 		return (self.r, self.g, self.b)
 
@@ -97,7 +95,12 @@ def press(ser: serial.Serial, vid: cv2.VideoCapture, s: str, duration: float = .
 	print(f"{datetime.now().strftime('%H:%M:%S')} '{s}' for {duration} {PAD}\r", end="")
 
 	ser.write(s.encode())
-	time.sleep(duration)
+	if duration >= 0.5:
+		tEnd = time.time() + duration
+		while time.time() < tEnd:
+			getframe(vid)
+	else:
+		time.sleep(duration)
 	ser.write(b"0")
 	time.sleep(.075)
 
@@ -130,7 +133,7 @@ def awaitPixel(
 ) -> bool:
 	end = time.time() + timeout
 	frame = getframe(vid)
-	while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl()):
+	while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
 		frame = getframe(vid)
 		if time.time() > end:
 			return False
@@ -147,7 +150,7 @@ def awaitNotPixel(
 ) -> bool:
 	end = time.time() + timeout
 	frame = getframe(vid)
-	while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl()):
+	while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
 		frame = getframe(vid)
 		if time.time() > end:
 			return False
@@ -164,7 +167,7 @@ def whilePixel(
 ) -> None:
 	frame = getframe(vid)
 	tEnd = time.time() + delay
-	while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl()):
+	while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
 		if time.time() > tEnd:
 			fn()
 			tEnd = time.time() + delay
@@ -181,7 +184,7 @@ def whileNotPixel(
 ) -> None:
 	frame = getframe(vid)
 	tEnd = time.time() + delay
-	while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl()):
+	while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
 		if time.time() > tEnd:
 			fn()
 			tEnd = time.time() + delay
@@ -210,13 +213,12 @@ def checkShinyDialog(ser: serial.Serial, vid: cv2.VideoCapture, dialogPos: Pos, 
 	awaitPixel(ser, vid, pos=dialogPos, pixel=dialogColor)
 	print(f"dialog start{PAD}\r", end="")
 
-	encounterFrame = getframe(vid)
-
 	crashed = False
 	crashed |= not awaitNotPixel(ser, vid, pos=dialogPos, pixel=dialogColor)
 	print(f"dialog end{PAD}\r", end="")
 	t0 = time.time()
 
+	encounterFrame = getframe(vid)
 	crashed |= not awaitPixel(ser, vid, pos=dialogPos, pixel=dialogColor)
 	t1 = time.time()
 
@@ -253,185 +255,163 @@ def jsonGetDefault(data: dict[K, T], key: K, default: T) -> tuple[dict[K, T], T]
 		return (data | { key: default}, default)
 
 
-def mainRunner(jsonPath: str, encountersKey: str, mainFn: Callable[[int, serial.Serial], Generator[int, None, None]]) -> int:
-	jsn, encounters = jsonGetDefault(
-		loadJson(jsonPath),
-		encountersKey,
-		0,
-	)
+class Script:
+	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
+		self._ser = ser
+		self._vid = vid
 
-	config = loadJson("./config.json")
-	serialPort = config.get("serialPort", "COM0")
+		self.CFG_NOTIFY: bool = kwargs.get("CFG_NOTIFY", False)
+		self.CFG_RENDER: bool = kwargs.get("CFG_RENDER", True)
+		self.CFG_SEND_ALL_ENCOUNTERS: bool = kwargs.get("CFG_SEND_ALL_ENCOUNTERS", False)
+		self.CFG_CATCH_CRASH: bool = kwargs.get("CFG_CATCH_CRASH", False)
 
-	print(f"start encounters: {encounters}")
+		self.windowName: str = kwargs.get("windowName", "Pokermans")
 
-	try:
-		with serial.Serial(serialPort, 9600) as ser, shh(ser):
-			for e in mainFn(encounters, ser):
-				encounters = e
-	except (KeyboardInterrupt, RunStop):
-		print("\033c", end="")
-	except serial.SerialException as e:
-		print(f"failed to open serial connection: {e}", file=sys.stderr)
-	finally:
-		cv2.destroyAllWindows()
-		dumpJson(jsonPath, jsn | { encountersKey: encounters})
-		print(f"saved encounters.. ({encounters}){PAD}\n")
+	@abstractmethod
+	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+		raise NotImplementedError
 
-	return 0
+	def getframe(self) -> numpy.ndarray:
+		_, frame = self._vid.read()
 
+		if self.CFG_RENDER is True:
+			cv2.imshow(self.windowName, frame)
 
-def _mainRunner(serialPort: str, encountersStart: int, fn: MAINRUNNER_FUNCTION, fnArgs: dict[str, Any]) -> int:
-	with serial.Serial(serialPort, 9600) as ser, shh(ser):
-		print("setting up cv2. This may take a while...")
-		vid: cv2.VideoCapture = cv2.VideoCapture(0)
-		vid.set(cv2.CAP_PROP_FPS, 30)
-		vid.set(cv2.CAP_PROP_FRAME_WIDTH, 768)
-		vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+		if cv2.waitKey(1) & 0xFF == ord("q"):
+			raise RunStop
+		else:
+			return frame
 
-		ser.write("B".encode())
-		time.sleep(0.1)
-		ser.write(b"0")
-		time.sleep(0.1)
+	def press(self, s: str, duration: float = 0.05) -> None:
+		print(f"{datetime.now().strftime('%H:%M:%S')} '{s}' for {duration} {PAD}\r", end="")
 
-		tStart = datetime.now()
-		currentEncounters = 0
-		encounters = encountersStart
-		crashes = 0
+		self._ser.write(s.encode())
+		if duration >= 0.5:
+			tEnd = time.time() + duration
+			while time.time() < tEnd:
+				self.getframe()
+		else:
+			time.sleep(duration)
 
-		sendMsg("Script started")
-		try:
-			while True:
-				print("\033c", end="")
+		self._ser.write(b"0")
+		time.sleep(0.075)
 
-				runDelta = datetime.now() - tStart
-				avg = runDelta / (currentEncounters if currentEncounters != 0 else 1)
+	def waitAndRender(self, duration: float) -> None:
+		tEnd = time.time() + duration
+		while time.time() < tEnd:
+			self.getframe()
 
-				# remove microseconds so they don't show up as "0:12:34.567890"
-				runDelta = timedelta(days=runDelta.days, seconds=runDelta.seconds)
-				avg = timedelta(days=avg.days, seconds=avg.seconds)
+	def alarm(self) -> None:
+		for _ in range(3):
+			self._ser.write(b"!")
+			self.waitAndRender(1)
+			self._ser.write(b".")
+			self.waitAndRender(0.4)
 
-				print(f"running for:  {runDelta} (average per reset: {avg})")
-				print(f"encounters:   ({currentEncounters:>03}/{(encounters):>05})")
-				print(f"crashes:      {crashes}\n")
+	def awaitPixel(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> bool:
+		frame = self.getframe()
+		tEnd = time.time() + timeout
+		while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
+			frame = self.getframe()
+			if time.time() > tEnd:
+				return False
+		else:
+			return True
 
-				try:
-					encounters, code, encounterFrame = fn(ser, vid, encounters, **fnArgs)
-				except RunCrash:
-					if CFG_CATCH_CRASH is True:
-						print("\a")
-						sendMsg("script crashed!")
-						try:
-							while True:
-								waitAndRender(vid, 5)
-						except KeyboardInterrupt:
-							pass
-					press(ser, vid, "A")
-					waitAndRender(vid, 1)
-					press(ser, vid, "A")
-					crashes += 1
-					continue
+	def awaitNotPixel(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> bool:
+		frame = self.getframe()
+		tEnd = time.time() + timeout
+		while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
+			frame = self.getframe()
+			if time.time() > tEnd:
+				return False
+		else:
+			return True
 
-				if code == ReturnCode.CRASH:
-					press(ser, vid, "A")
-					waitAndRender(vid, 1)
-					press(ser, vid, "A")
-					crashes += 1
-					continue
-				elif code == ReturnCode.SHINY:
-					sendMsg("Found a SHINY!!")
+	def awaitFlash(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> bool:
+		if not self.awaitPixel(pos, pixel, timeout):
+			return False
+		else:
+			return self.awaitNotPixel(pos, pixel, timeout)
 
-					sendScreenshot(encounterFrame)
+	def whilePixel(self, pos: Pos, pixel: Pixel, delay: float, fn: Callable[[], None], timeout: float = 90) -> bool:
+		frame = self.getframe()
+		tEnd = time.time()
+		tStop = time.time() + timeout
+		while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
+			t = time.time()
+			if t > tEnd:
+				fn()
+				tEnd = time.time() + delay
+			elif t > tStop:
+				return False
+			frame = self.getframe()
 
-					ser.write(b"0")
-					print("SHINY!!")
-					print("SHINY!!")
-					print("SHINY!!")
-					print("\a")
+		return True
 
-					try:
-						while True:
-							if time.time() % 5 == 0:
-								print("\a")
-							getframe(vid)
-					except KeyboardInterrupt:
-						pass
+	def whileNotPixel(self, pos: Pos, pixel: Pixel, delay: float, fn: Callable[[], None], timeout: float = 90) -> bool:
+		frame = self.getframe()
+		tEnd = time.time()
+		tStop = time.time() + timeout
+		while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
+			t = time.time()
+			if t > tEnd:
+				fn()
+				tEnd = time.time() + delay
+			elif t > tStop:
+				return False
+			frame = self.getframe()
 
-					while True:
-						cmd = input("continue? (y/n) ").strip().lower()
-						if cmd in ("y", "yes"):
-							break
-						elif cmd in ("n", "no"):
-							raise RunStop
-						else:
-							print(f"invalid command: {cmd}", file=sys.stderr)
-				elif code == ReturnCode.OK:
-					currentEncounters += 1
-					if CFG_SEND_ALL_ENCOUNTERS is True:
-						sendScreenshot(encounterFrame)
-				else:
-					print(f"got invalid return code: {code}", sys.stderr)
-		except (KeyboardInterrupt, EOFError):
-			pass
-		finally:
-			vid.release()
-			cv2.destroyAllWindows()
-			return encounters
+		return True
 
+	def resetGame(self) -> None:
+		self.press("H")
+		self.waitAndRender(1)
+		self.press("X")
+		self.waitAndRender(1)
+		self.press("A")
+		self.waitAndRender(3)
+		self.press("A")
+		self.waitAndRender(1)
+		self.press("A")
 
-def mainRunner2(jsonPath: str, encountersKey: str, mainFn: MAINRUNNER_FUNCTION, parser: Optional[argparse.ArgumentParser] = None) -> int:
-	global CFG_NOTIFY
-	global CFG_RENDER
-	global CFG_SEND_ALL_ENCOUNTERS
-	global CFG_CATCH_CRASH
+	def checkShinyDialog(self, dialogPos: Pos, dialogColor: Pixel, delay: float = 2) -> tuple[ReturnCode, numpy.ndarray]:
+		self.awaitPixel(dialogPos, dialogColor)
+		print(f"dialog start{PAD}\r", end="")
 
-	if parser is None:
-		parser = argparse.ArgumentParser()
+		crashed = not self.awaitNotPixel(dialogPos, dialogColor)
+		print(f"dialog end{PAD}\r", end="")
+		t0 = time.time()
 
-	assert isinstance(parser, argparse.ArgumentParser)
+		encounterFrame = self.getframe()
+		crashed |= not self.awaitPixel(dialogPos, dialogColor)
 
-	parser.add_argument("-R", "--disable-render", action="store_false", dest="render", help="disable rendering")
-	parser.add_argument("-E", "--send-all-encounters", action="store_true", dest="sendEncounters", help="send a screenshot of all encounters")
-	parser.add_argument("-n", "--notify", action="store_true", dest="notify", help="send notifications over telegram (requires telegram-send to be set up)")
-	parser.add_argument("-C", "--catch-crash", action="store_true", dest="catchCrash", help="pause program if game crashed")
+		diff = time.time() - t0
+		print(f"dialog delay: {diff:.3f}s{PAD}")
 
-	args = parser.parse_args().__dict__
+		self.waitAndRender(0.5)
 
-	CFG_NOTIFY = bool(args.get("notify"))
-	CFG_RENDER = bool(args.get("render"))
-	CFG_SEND_ALL_ENCOUNTERS = bool(args.get("sendEncounters"))
-	CFG_CATCH_CRASH = bool(args.get("catchCrash"))
+		if diff >= 89 or crashed is True:
+			raise RunCrash
+		else:
+			return (ReturnCode.SHINY if 10 > diff > delay else ReturnCode.OK, encounterFrame)
 
-	jsn, encounters = jsonGetDefault(
-		loadJson(jsonPath),
-		encountersKey,
-		0,
-	)
+	def _sendTelegram(self, **kwargs) -> None:
+		if self.CFG_NOTIFY is True:
+			try:
+				telegram_send.send(**kwargs)
+			except telegram.error.NetworkError as e:
+				print(f"telegram_send: connection failed: {e}", file=sys.stderr)
 
-	config = loadJson("./config.json")
-	serialPort = config.get("serialPort", "COM0")
-	print("Config:", PAD)
-	print(f"   Serial Port         = {serialPort}")
-	print(f"   Render              = {CFG_RENDER}")
-	print(f"   Notify Telegram     = {CFG_NOTIFY}")
-	print(f"   Send All Encounters = {CFG_SEND_ALL_ENCOUNTERS}")
-	print(f"   Catch Crashes       = {CFG_CATCH_CRASH}")
+	def sendMsg(self, msg: str) -> None:
+		self._sendTelegram(messages=(msg,))
 
-	print(f"start encounters: {encounters}")
+	def sendImg(self, imgPath: str) -> None:
+		with open(imgPath, "rb") as img:
+			self._sendTelegram(images=(img,))
 
-	try:
-		encounters = _mainRunner(serialPort, encounters, mainFn, args)
-	except RunStop:
-		print("\033c", end="")
-	except Exception as e:
-		s = f"Program crashed: {e}"
-		print(s, file=sys.stderr)
-		sendMsg(s)
-		raise
-	else:
-		print("\033c", end="")
-	finally:
-		dumpJson(jsonPath, jsn | { encountersKey: encounters})
-		print(f"saved encounters.. ({encounters}){PAD}\n")
-
-	return 0
+	def sendScreenshot(self, frame: numpy.ndarray) -> None:
+		scrName = f"tempScreenshot{uuid.uuid4()}.png"
+		cv2.imwrite(scrName, frame)
+		self.sendImg(scrName)
+		os.remove(scrName)
