@@ -1,4 +1,4 @@
 opencv-python
 numpy
-serial
+pyserial
 telegram-send
