@@ -1,4 +1,6 @@
+import cv2
 import numpy
+import serial
 
 from lib import COLOR_BLACK
 from lib import COLOR_WHITE
@@ -11,6 +13,9 @@ from lib.gen4 import OWN_POKEMON_POS
 
 
 class ShayminScript(Script):
+	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
+		super().__init__(ser, vid, **kwargs, windowName="Pokermans: Shaymin")
+
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		self.press("A")
 		self.waitAndRender(3)

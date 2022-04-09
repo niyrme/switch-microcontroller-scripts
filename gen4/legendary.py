@@ -1,4 +1,6 @@
+import cv2
 import numpy
+import serial
 
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
@@ -9,6 +11,9 @@ from lib.gen4 import ENCOUNTER_DIALOG_POS
 
 
 class LegendaryScript(Script):
+	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
+		super().__init__(ser, vid, **kwargs, windowName="Pokermans: Legendary")
+
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		self.resetGame()
 		awaitInGameSpam(self._ser, self._vid)
