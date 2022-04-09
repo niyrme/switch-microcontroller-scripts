@@ -14,15 +14,12 @@ from lib.gen4 import ENCOUNTER_DIALOG_POS
 from lib.gen4 import OWN_POKEMON_POS
 
 
-def p(s: str) -> None:
-	print(f"{s}{PAD}\r", end="")
-
-
 class StarterScript(Script):
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
 		super().__init__(ser, vid, **kwargs)
 
-		self.starter = int(kwargs.get("starter"))
+		self.starter = int(kwargs["starter"])
+		self.windowName = "Pokermans: " + ("Turtwig", "Chimchar", "Piplup")[self.starter - 1]
 
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		self.resetGame()
@@ -41,12 +38,12 @@ class StarterScript(Script):
 			self.waitAndRender(2)
 			self.press("A")
 
-		p("move to bag")
+		print(f"move to bag{PAD}\r", end="")
 		for v in (7, 2, 2, 5, 2, 5):
 			self.waitAndRender(v)
 			self.press("A")
 
-		p("select starter")
+		print(f"select starter{PAD}\r", end="")
 		self.press("B")
 		self.waitAndRender(2)
 		for _ in range(self.starter - 1):
