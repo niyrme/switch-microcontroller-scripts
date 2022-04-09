@@ -252,7 +252,7 @@ def jsonGetDefault(data: dict[K, T], key: K, default: T) -> tuple[dict[K, T], T]
 	try:
 		return (data, data[key])
 	except KeyError:
-		return (data | { key: default}, default)
+		return (data | {key: default}, default)
 
 
 class Script:
@@ -265,7 +265,7 @@ class Script:
 		self.CFG_SEND_ALL_ENCOUNTERS: bool = kwargs.get("CFG_SEND_ALL_ENCOUNTERS", False)
 		self.CFG_CATCH_CRASH: bool = kwargs.get("CFG_CATCH_CRASH", False)
 
-		self.windowName: str = kwargs.get("windowName", "Pokermans")
+		self.windowName: str = kwargs.get("windowName", "Game")
 
 	@abstractmethod
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
