@@ -15,21 +15,19 @@ from lib.gen4 import ENCOUNTER_DIALOG_POS
 from lib.gen4 import OWN_POKEMON_POS
 
 
-def p(s: str) -> None:
-	print(f"{s}{PAD}\r", end="")
-
-
-_directions: dict[str, tuple[str, str]] = {
-	"h": ("a", "d"),
-	"v": ("w", "s"),
-}
-
-
-class ShinyGrindScript(Script):
+class RandomScript(Script):
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
-		super().__init__(ser, vid, **kwargs)
+		super().__init__(ser, vid, **kwargs, windowName="Pokermans: Random")
 
-		self.directions = cycle(_directions[kwargs.get("direction")])
+		direction = kwargs["direction"]
+		assert direction in ("h", "v")
+
+		self.directions = cycle(
+			("a", "d")
+			if direction == "h"
+			else ("w", "s"),
+		)
+
 		self.delay = float(kwargs.get("delay"))
 
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
