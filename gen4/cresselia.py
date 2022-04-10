@@ -87,6 +87,7 @@ class CresseliaScript(Gen4Script):
 		self.press("a", 1.4)
 		self.press("s", 6.5)
 
+		areaReloads = 0
 		while True:
 			self.press("R")
 			self.waitAndRender(1)
@@ -96,6 +97,7 @@ class CresseliaScript(Gen4Script):
 			self.waitAndRender(1)
 
 			if encounter is True:
+				print(f"found after reloading area {areaReloads} times", PAD)
 				print("roamer in area", PAD)
 				self.press("w", 0.3)
 				self.waitAndRender(0.1)
@@ -138,6 +140,11 @@ class CresseliaScript(Gen4Script):
 					if time.time() > tEnd:
 						self._ser.write(next(_directions).encode())
 						tEnd = time.time() + 0.5
+					if numpy.array_equal(frame[SHORT_DIALOG_POS.y][SHORT_DIALOG_POS.x], COLOR_WHITE):
+						# repel used up
+						for d in (2, 1, 1):
+							self.waitAndRender(d)
+							self.press("A")
 					frame = self.getframe()
 
 				print("encounter!", PAD)
@@ -147,6 +154,6 @@ class CresseliaScript(Gen4Script):
 
 				return (e + 1, rc, encounterFrame)
 			else:
-				print(f"not here{PAD}\r", end="")
-				self.press("w", 2.5)
-				self.press("s", 2.6)
+				areaReloads += 1
+				self.press("w", 2)
+				self.press("s", 2.1)
