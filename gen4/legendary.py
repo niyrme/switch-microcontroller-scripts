@@ -5,18 +5,17 @@ import serial
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib import ReturnCode
-from lib import Script
-from lib.gen4 import awaitInGameSpam
 from lib.gen4 import ENCOUNTER_DIALOG_POS
+from lib.gen4 import Gen4Script
 
 
-class LegendaryScript(Script):
+class LegendaryScript(Gen4Script):
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
 		super().__init__(ser, vid, **kwargs, windowName="Pokermans: Legendary")
 
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		self.resetGame()
-		awaitInGameSpam(self._ser, self._vid)
+		self.awaitInGameSpam()
 
 		# walk towards legendary
 		self.press("w", duration=0.5)

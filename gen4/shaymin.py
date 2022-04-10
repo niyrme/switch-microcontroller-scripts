@@ -7,12 +7,12 @@ from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib import PAD
 from lib import ReturnCode
-from lib import Script
 from lib.gen4 import ENCOUNTER_DIALOG_POS
+from lib.gen4 import Gen4Script
 from lib.gen4 import OWN_POKEMON_POS
 
 
-class ShayminScript(Script):
+class ShayminScript(Gen4Script):
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
 		super().__init__(ser, vid, **kwargs, windowName="Pokermans: Shaymin")
 
