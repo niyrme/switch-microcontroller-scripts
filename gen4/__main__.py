@@ -15,8 +15,8 @@ import lib
 from .cresselia import CresseliaScript
 from .legendary import LegendaryScript
 from .pixie import PixieScript
+from .random import RandomScript
 from .shaymin import ShayminScript
-from .shiny_grind import ShinyGrindScript
 from .starter import StarterScript
 from lib import jsonGetDefault
 from lib import PAD
@@ -32,8 +32,6 @@ def _main(serialPort: str, encountersStart: int, scriptClass: Type[Script], scri
 		vid.set(cv2.CAP_PROP_FRAME_WIDTH, 768)
 		vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-		ser.write("B".encode())
-		time.sleep(0.1)
 		ser.write(b"0")
 		time.sleep(0.1)
 
@@ -44,6 +42,7 @@ def _main(serialPort: str, encountersStart: int, scriptClass: Type[Script], scri
 
 		script = scriptClass(ser, vid, **scriptArgs)
 		script.sendMsg("Script started")
+		script.waitAndRender(1)
 		try:
 			while True:
 				print("\033c", end="")
@@ -126,13 +125,13 @@ def _main(serialPort: str, encountersStart: int, scriptClass: Type[Script], scri
 
 def main() -> int:
 	# main parser for general arguments
-	parser = argparse.ArgumentParser(description="main runner for running scripts")
+	parser = argparse.ArgumentParser(prog="gen4", description="main runner for running scripts")
 	parser.add_argument("-c", "--configFile", type=str, dest="configFile", default="config.json", help="configuration file (defualt: %(default)s)")
 	parser.add_argument("-e", "--encounterFile", type=str, dest="encounterFile", default="shinyGrind.json", help="configuration file (defualt: %(default)s)")
-	parser.add_argument("-R", "--disable-render", action="store_false", dest="render", help="disable rendering")
-	parser.add_argument("-E", "--send-all-encounters", action="store_true", dest="sendEncounters", help="send a screenshot of all encounters")
-	parser.add_argument("-n", "--notify", action="store_true", dest="notify", help="send notifications over telegram (requires telegram-send to be set up)")
-	parser.add_argument("-C", "--catch-crash", action="store_true", dest="catchCrash", help="pause program if game crashed")
+	parser.add_argument("-R", "--disable-render", action="store_false", dest="CFG_RENDER", help="disable rendering")
+	parser.add_argument("-E", "--send-all-encounters", action="store_true", dest="CFG_SEND_ALL_ENCOUNTERS", help="send a screenshot of all encounters")
+	parser.add_argument("-n", "--notify", action="store_true", dest="CFG_NOTIFY", help="send notifications over telegram (requires telegram-send to be set up)")
+	parser.add_argument("-C", "--catch-crash", action="store_true", dest="CFG_CATCH_CRASH", help="pause program if game crashed")
 
 	# parsers for each script
 	scriptParser = parser.add_subparsers(dest="script")
@@ -140,6 +139,11 @@ def main() -> int:
 	scriptParser.add_parser("legendary")
 	scriptParser.add_parser("pixie")
 	scriptParser.add_parser("shaymin")
+
+	eggHatchScriptPatser = scriptParser.add_parser("eggHatch")
+	eggHatchScriptPatser.add_argument("direction", type=str, choices={"h", "v"}, help="direction to run in {(h)orizontal, (v)ertical} direction")
+	eggHatchScriptPatser.add_argument("delay", type=float, help="delay betweeen changing direction")
+	eggHatchScriptPatser.add_argument("eggCount", type=int, help="number of eggs to hatch")
 
 	randomScriptParser = scriptParser.add_parser("random")
 	randomScriptParser.add_argument("direction", type=str, choices={"h", "v"}, help="direction to run in {(h)orizontal, (v)ertical} direction")
@@ -150,19 +154,19 @@ def main() -> int:
 
 	args = parser.parse_args().__dict__
 
-	scriptName = args.get("script")
+	scriptName = args["script"]
 
 	scripts: dict[str, Type[Script]] = {
 		"cresselia": CresseliaScript,
 		"legendary": LegendaryScript,
 		"pixie": PixieScript,
 		"shaymin": ShayminScript,
-		"random": ShinyGrindScript,
+		"random": RandomScript,
 		"starter": StarterScript,
 	}
 
 	jsn, encounters = jsonGetDefault(
-		lib.loadJson(str(args.get("encounterFile"))),
+		lib.loadJson(str(args["encounterFile"])),
 		scriptName,
 		0,
 	)
@@ -170,20 +174,21 @@ def main() -> int:
 	def getMark(b: bool) -> str:
 		return "\u2705" if b is True else "\u274E"
 
-	config = lib.loadJson(str(args.get("configFile")))
-	serialPort = config.get("serialPort", "COM0")
+	configJSON = lib.loadJson(str(args["configFile"]))
+	serialPort = configJSON.get("serialPort", "COM0")
 
 	print("Config:", PAD)
 	print(f"   Serial Port: '{serialPort}'")
-	print(f"   {getMark(args.get('CFG_RENDER'))} Render")
-	print(f"   {getMark(args.get('CFG_NOTIFY'))} Notify Telegram")
-	print(f"   {getMark(args.get('CFG_SEND_ALL_ENCOUNTERS'))} Send All Encounters")
-	print(f"   {getMark(args.get('CFG_CATCH_CRASH'))} Catch Crashes")
+	print(f"   {getMark(args['CFG_RENDER'])} Render")
+	print(f"   {getMark(args['CFG_NOTIFY'])} Notify Telegram")
+	print(f"   {getMark(args['CFG_SEND_ALL_ENCOUNTERS'] & args['CFG_NOTIFY'])} Send All Encounters")
+	print(f"   {getMark(args['CFG_CATCH_CRASH'])} Catch Crashes\n")
 
-	print(f"\nstart encounters: {encounters}")
-
-	script = scripts.get(scriptName)
+	script = scripts[scriptName]
 	assert script is not None
+
+	if script.storeEncounters is True:
+		print(f"start encounters: {encounters}")
 
 	try:
 		encounters = _main(serialPort, encounters, script, args)
@@ -199,8 +204,9 @@ def main() -> int:
 	else:
 		print("\033c", end="")
 	finally:
-		lib.dumpJson(str(args.get("encounterFile")), jsn | {scriptName: encounters})
-		print(f"saved encounters.. ({encounters}){PAD}\n")
+		if script.storeEncounters is True:
+			lib.dumpJson(str(args["encounterFile"]), jsn | {scriptName: encounters})
+			print(f"saved encounters.. ({encounters}){PAD}\n")
 
 	return 0
 
