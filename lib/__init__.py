@@ -273,7 +273,6 @@ class Script:
 		self.CFG_RENDER: bool = kwargs.get("CFG_RENDER", True)
 		self.CFG_SEND_ALL_ENCOUNTERS: bool = kwargs.get("CFG_SEND_ALL_ENCOUNTERS", False)
 		self.CFG_CATCH_CRASH: bool = kwargs.get("CFG_CATCH_CRASH", False)
-		self.CFG_SHOW_RUN_INFO: bool = True
 
 		self.windowName: str = kwargs.get("windowName", "Game")
 
