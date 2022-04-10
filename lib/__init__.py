@@ -91,6 +91,13 @@ def alarm(ser: serial.Serial, vid: cv2.VideoCapture) -> None:
 		waitAndRender(vid, 0.4)
 
 
+def nearPixel(pixel: numpy.ndarray, expected: Pixel, distance: int = 75) -> bool:
+	return sum(
+		(c2 - c1) ** 2
+		for c1, c2 in zip(pixel, expected.tpl)
+	) < distance
+
+
 def press(ser: serial.Serial, vid: cv2.VideoCapture, s: str, duration: float = .05) -> None:
 	print(f"{datetime.now().strftime('%H:%M:%S')} '{s}' for {duration} {PAD}\r", end="")
 
@@ -256,6 +263,8 @@ def jsonGetDefault(data: dict[K, T], key: K, default: T) -> tuple[dict[K, T], T]
 
 
 class Script:
+	storeEncounters: bool = True
+
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
 		self._ser = ser
 		self._vid = vid
@@ -264,6 +273,7 @@ class Script:
 		self.CFG_RENDER: bool = kwargs.get("CFG_RENDER", True)
 		self.CFG_SEND_ALL_ENCOUNTERS: bool = kwargs.get("CFG_SEND_ALL_ENCOUNTERS", False)
 		self.CFG_CATCH_CRASH: bool = kwargs.get("CFG_CATCH_CRASH", False)
+		self.CFG_SHOW_RUN_INFO: bool = True
 
 		self.windowName: str = kwargs.get("windowName", "Game")
 
@@ -308,6 +318,13 @@ class Script:
 			self._ser.write(b".")
 			self.waitAndRender(0.4)
 
+	def nearColor(self, pixel: numpy.ndarray, expected: Pixel, distance: int = 75) -> bool:
+		d = sum(
+			(c2 - c1) ** 2
+			for c1, c2 in zip(pixel, expected.tpl)
+		)
+		return d < distance
+
 	def awaitPixel(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> bool:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
@@ -334,6 +351,26 @@ class Script:
 		else:
 			return self.awaitNotPixel(pos, pixel, timeout)
 
+	def awaitNearPixel(self, pos: Pos, pixel: Pixel, distance: int = 30, timeout: float = 90) -> bool:
+		tEnd = time.time() + timeout
+		frame = self.getframe()
+		while not self.nearColor(frame[pos.y][pos.x], pixel, distance):
+			frame = self.getframe()
+			if time.time() > tEnd:
+				return False
+		else:
+			return True
+
+	def awaitNotNearPixel(self, pos: Pos, pixel: Pixel, distance: int = 30, timeout: float = 90) -> bool:
+		tEnd = time.time() + timeout
+		frame = self.getframe()
+		while self.nearColor(frame[pos.y][pos.x], pixel, distance):
+			frame = self.getframe()
+			if time.time() > tEnd:
+				return False
+		else:
+			return True
+
 	def whilePixel(self, pos: Pos, pixel: Pixel, delay: float, fn: Callable[[], None], timeout: float = 90) -> bool:
 		frame = self.getframe()
 		tEnd = time.time()
@@ -354,6 +391,36 @@ class Script:
 		tEnd = time.time()
 		tStop = time.time() + timeout
 		while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
+			t = time.time()
+			if t > tEnd:
+				fn()
+				tEnd = time.time() + delay
+			elif t > tStop:
+				return False
+			frame = self.getframe()
+
+		return True
+
+	def whileNearPixel(self, pos: Pos, pixel: Pixel, distance: int, delay: float, fn: Callable[[], None], timeout: float = 90) -> bool:
+		frame = self.getframe()
+		tEnd = time.time()
+		tStop = time.time() + timeout
+		while self.nearColor(frame[pos.y][pos.x], pixel, distance):
+			t = time.time()
+			if t > tEnd:
+				fn()
+				tEnd = time.time() + delay
+			elif t > tStop:
+				return False
+			frame = self.getframe()
+
+		return True
+
+	def whileNotNearPixel(self, pos: Pos, pixel: Pixel, distance: int, delay: float, fn: Callable[[], None], timeout: float = 90) -> bool:
+		frame = self.getframe()
+		tEnd = time.time()
+		tStop = time.time() + timeout
+		while not self.nearColor(frame[pos.y][pos.x], pixel, distance):
 			t = time.time()
 			if t > tEnd:
 				fn()
