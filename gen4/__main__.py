@@ -5,6 +5,7 @@ from datetime import datetime
 from datetime import timedelta
 from typing import Any
 from typing import Type
+from typing import Union
 
 import cv2
 import serial
@@ -13,19 +14,37 @@ import telegram_send
 
 import lib
 from .cresselia import CresseliaScript
+from .darkrai import DarkraiScript
 from .legendary import LegendaryScript
 from .pixie import PixieScript
 from .random import RandomScript
 from .shaymin import ShayminScript
 from .starter import StarterScript
+from lib import Config
 from lib import jsonGetDefault
 from lib import PAD
 from lib import ReturnCode
 from lib import Script
 
 
-def _main(serialPort: str, encountersStart: int, scriptClass: Type[Script], scriptArgs: dict[str, Any]) -> int:
-	with serial.Serial(serialPort, 9600) as ser, lib.shh(ser):
+def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script]) -> int:
+	configJSON: dict[str, Union[str, bool]] = lib.loadJson(str(args["configFile"]))
+
+	config = Config(
+		str(configJSON.get("serialPort", "COM0")),
+		bool(configJSON.get("notifyShiny", False)),
+		bool(configJSON.get("renderCapture", True)),
+		bool(configJSON.get("sendAllEncounters", False)),
+		bool(configJSON.get("catchCrashes", False)),
+		bool(configJSON.get("showLastRunDuration", False)),
+	)
+
+	print("Config:", PAD)
+	print(config, "\n")
+
+	print(f"start encounters: {encountersStart}")
+
+	with serial.Serial(config.serialPort, 9600) as ser, lib.shh(ser):
 		print("setting up cv2. This may take a while...")
 		vid: cv2.VideoCapture = cv2.VideoCapture(0)
 		vid.set(cv2.CAP_PROP_FPS, 30)
@@ -35,33 +54,44 @@ def _main(serialPort: str, encountersStart: int, scriptClass: Type[Script], scri
 		ser.write(b"0")
 		time.sleep(0.1)
 
-		tStart = datetime.now()
 		currentEncounters = 0
 		encounters = encountersStart
 		crashes = 0
 
-		script = scriptClass(ser, vid, **scriptArgs)
+		script = scriptClass(ser, vid, config, **args)
 		script.sendMsg("Script started")
 		script.waitAndRender(1)
 		try:
+			tStart = datetime.now()
+			runDuration = timedelta(days=0, seconds=0)
+
 			while True:
 				print("\033c", end="")
 
 				runDelta = datetime.now() - tStart
 				avg = runDelta / (currentEncounters if currentEncounters != 0 else 1)
+				stats: list[tuple[str, Any]] = [
+					("running for", timedelta(days=runDelta.days, seconds=runDelta.seconds)),
+					("average per reset", timedelta(days=avg.days, seconds=avg.seconds)),
+					("encounters", f"{currentEncounters:>03}/{encounters:>05}"),
+					("crashes", crashes),
+				]
+				if script.config.showLastRunDuration is True:
+					stats.append(("last run duration", timedelta(days=runDuration.days, seconds=runDuration.seconds)))
+				stats += script.extraStats
 
-				# remove microseconds so they don't show up as "0:12:34.567890"
-				runDelta = timedelta(days=runDelta.days, seconds=runDelta.seconds)
-				avg = timedelta(days=avg.days, seconds=avg.seconds)
+				maxStatInfoLen = max(len(s[0]) for s in stats) + 1
 
-				print(f"running for:  {runDelta} (average per reset: {avg})")
-				print(f"encounters:   ({currentEncounters:>03}/{(encounters):>05})")
-				print(f"crashes:      {crashes}\n")
+				for (info, stat) in stats:
+					print(f"{(info + ':').ljust(maxStatInfoLen)} {stat}")
 
+				print()
+
+				runStart = datetime.now()
 				try:
 					encounters, code, encounterFrame = script.main(encounters)
 				except lib.RunCrash:
-					if script.CFG_CATCH_CRASH is True:
+					if script.config.catchCrashes is True:
 						print("\a")
 						script.sendMsg("script crashed!")
 						try:
@@ -69,11 +99,15 @@ def _main(serialPort: str, encountersStart: int, scriptClass: Type[Script], scri
 								script.waitAndRender(5)
 						except KeyboardInterrupt:
 							pass
-					script.press("A")
-					script.waitAndRender(1)
-					script.press("A")
+					for _ in range(3):
+						script.press("A")
+						script.waitAndRender(1.5)
 					crashes += 1
 					continue
+				finally:
+					currentEncounters += 1
+
+				runDuration = datetime.now() - runStart
 
 				if code == ReturnCode.CRASH:
 					script.press("A")
@@ -109,8 +143,7 @@ def _main(serialPort: str, encountersStart: int, scriptClass: Type[Script], scri
 						else:
 							print(f"invalid command: {cmd}", file=sys.stderr)
 				elif code == ReturnCode.OK:
-					currentEncounters += 1
-					if script.CFG_SEND_ALL_ENCOUNTERS is True:
+					if script.config.sendAllEncounters is True:
 						script.sendScreenshot(encounterFrame)
 				else:
 					print(f"got invalid return code: {code}", file=sys.stderr)
@@ -128,28 +161,20 @@ def main() -> int:
 	parser = argparse.ArgumentParser(prog="gen4", description="main runner for running scripts")
 	parser.add_argument("-c", "--configFile", type=str, dest="configFile", default="config.json", help="configuration file (defualt: %(default)s)")
 	parser.add_argument("-e", "--encounterFile", type=str, dest="encounterFile", default="shinyGrind.json", help="configuration file (defualt: %(default)s)")
-	parser.add_argument("-R", "--disable-render", action="store_false", dest="CFG_RENDER", help="disable rendering")
-	parser.add_argument("-E", "--send-all-encounters", action="store_true", dest="CFG_SEND_ALL_ENCOUNTERS", help="send a screenshot of all encounters")
-	parser.add_argument("-n", "--notify", action="store_true", dest="CFG_NOTIFY", help="send notifications over telegram (requires telegram-send to be set up)")
-	parser.add_argument("-C", "--catch-crash", action="store_true", dest="CFG_CATCH_CRASH", help="pause program if game crashed")
 
 	# parsers for each script
 	scriptParser = parser.add_subparsers(dest="script")
-	scriptParser.add_parser("cresselia")
-	scriptParser.add_parser("legendary")
-	scriptParser.add_parser("pixie")
-	scriptParser.add_parser("shaymin")
+	scriptParser.add_parser("cresselia", description="reset Cresselia")
+	scriptParser.add_parser("darkrai", description="reset Darkrai")
+	scriptParser.add_parser("legendary", description="reset Dialga/Palkia")
+	scriptParser.add_parser("pixie", description="reset Uxie/Azelf")
+	scriptParser.add_parser("shaymin", description="reset Shaymin")
 
-	eggHatchScriptPatser = scriptParser.add_parser("eggHatch")
-	eggHatchScriptPatser.add_argument("direction", type=str, choices={"h", "v"}, help="direction to run in {(h)orizontal, (v)ertical} direction")
-	eggHatchScriptPatser.add_argument("delay", type=float, help="delay betweeen changing direction")
-	eggHatchScriptPatser.add_argument("eggCount", type=int, help="number of eggs to hatch")
-
-	randomScriptParser = scriptParser.add_parser("random")
+	randomScriptParser = scriptParser.add_parser("random", description="reset random encounters")
 	randomScriptParser.add_argument("direction", type=str, choices={"h", "v"}, help="direction to run in {(h)orizontal, (v)ertical} direction")
 	randomScriptParser.add_argument("delay", type=float, help="delay betweeen changing direction")
 
-	starterScriptParser = scriptParser.add_parser("starter")
+	starterScriptParser = scriptParser.add_parser("starter", description="reset starter")
 	starterScriptParser.add_argument("starter", type=int, choices={1, 2, 3}, help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
 
 	args = parser.parse_args().__dict__
@@ -158,6 +183,7 @@ def main() -> int:
 
 	scripts: dict[str, Type[Script]] = {
 		"cresselia": CresseliaScript,
+		"darkrai": DarkraiScript,
 		"legendary": LegendaryScript,
 		"pixie": PixieScript,
 		"shaymin": ShayminScript,
@@ -171,27 +197,11 @@ def main() -> int:
 		0,
 	)
 
-	def getMark(b: bool) -> str:
-		return "\u2705" if b is True else "\u274E"
-
-	configJSON = lib.loadJson(str(args["configFile"]))
-	serialPort = configJSON.get("serialPort", "COM0")
-
-	print("Config:", PAD)
-	print(f"   Serial Port: '{serialPort}'")
-	print(f"   {getMark(args['CFG_RENDER'])} Render")
-	print(f"   {getMark(args['CFG_NOTIFY'])} Notify Telegram")
-	print(f"   {getMark(args['CFG_SEND_ALL_ENCOUNTERS'] & args['CFG_NOTIFY'])} Send All Encounters")
-	print(f"   {getMark(args['CFG_CATCH_CRASH'])} Catch Crashes\n")
-
 	script = scripts[scriptName]
 	assert script is not None
 
-	if script.storeEncounters is True:
-		print(f"start encounters: {encounters}")
-
 	try:
-		encounters = _main(serialPort, encounters, script, args)
+		encounters = _main(args, encounters, script)
 	except lib.RunStop:
 		print("\033c", end="")
 	except Exception as e:

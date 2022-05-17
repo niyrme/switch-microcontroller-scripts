@@ -1,3 +1,9 @@
 {
-	"serialPort": "COM0"
+	"serialPort": "COM0",
+
+	"notifyShiny": false,
+	"renderCapture": true,
+	"sendAllEncounters": false,
+	"catchCrashes": false,
+	"showLastRunDuration": false
 }

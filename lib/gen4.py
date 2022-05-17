@@ -27,33 +27,26 @@ class Gen4Script(Script):
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		raise NotImplementedError
 
-	def awaitInGame(self) -> None:
-		crashed = not self.awaitPixel(pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-		print("startup screen", PAD)
+	def checkShinyDialog(self, dialogPos: Pos, dialogColor: Pixel, delay: float = 2) -> tuple[ReturnCode, numpy.ndarray]:
+		self.awaitPixel(dialogPos, dialogColor)
+		print(f"dialog start{PAD}\r", end="")
 
-		crashed |= not self.awaitNotPixel(pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-		print("after startup", PAD)
+		crashed = not self.awaitNotPixel(dialogPos, dialogColor)
+		print(f"dialog end{PAD}\r", end="")
+		t0 = time.time()
 
-		if crashed is True:
+		encounterFrame = self.getframe()
+		crashed |= not self.awaitPixel(dialogPos, dialogColor)
+
+		diff = time.time() - t0
+		print(f"dialog delay: {diff:.3f}s{PAD}")
+
+		self.waitAndRender(0.5)
+
+		if diff >= 89 or crashed is True:
 			raise RunCrash
-
-		# in splash screen
-		self.waitAndRender(1)
-		self.press("A")
-		self.waitAndRender(3)
-		self.press("A")
-		self.waitAndRender(3)
-
-		# loading screen to game
-		crashed |= not self.awaitPixel(pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-		print("loading screen", PAD)
-		crashed |= not self.awaitNotPixel(pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
-
-		if crashed is True:
-			raise RunCrash
-
-		print("in game", PAD)
-		self.waitAndRender(1)
+		else:
+			return (ReturnCode.SHINY if 10 > diff > delay else ReturnCode.OK, encounterFrame)
 
 	def awaitInGameSpam(self) -> None:
 		self.awaitPixel(pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
@@ -90,12 +83,22 @@ class Gen4Script(Script):
 		self.press("+")
 		self.waitAndRender(1)
 		self.press("z", 3)
-		self.press("e", 0.3)
+		self.press("e", 0.3, render=True)
 		self.press("A")
 		self.waitAndRender(1.5)
 		self.press("A")
 
-		self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE)
+		while not self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE):
+			for _ in range(3):
+				self.press("B")
+				self.waitAndRender(0.5)
+
+			self.press("z", 3)
+			self.press("e", 0.3, render=True)
+			self.press("A")
+			self.waitAndRender(1.5)
+			self.press("A")
+
 		self.waitAndRender(2)
 
 		self.press("R")
@@ -108,7 +111,7 @@ class Gen4Script(Script):
 		while True:
 			self.press("R")
 			self.waitAndRender(1)
-			encounter = self.awaitNearPixel(ROAMER_MAP_POS, ROAMER_MAP_COLOR, 45, 5)
+			encounter = self.awaitNearPixel(ROAMER_MAP_POS, ROAMER_MAP_COLOR, 45, 3)
 
 			self.press("R")
 			self.waitAndRender(1)
@@ -151,7 +154,7 @@ class Gen4Script(Script):
 
 				_directions = cycle(("a", "d"))
 				print("go for encounter", PAD)
-				tEnd = time.time() + 2.5
+				tEnd = time.time() + 2
 				frame = self.getframe()
 				while not numpy.array_equal(
 					frame[LOADING_SCREEN_POS.y][LOADING_SCREEN_POS.x],
@@ -161,10 +164,14 @@ class Gen4Script(Script):
 						self._ser.write(next(_directions).encode())
 						tEnd = time.time() + 0.5
 					if numpy.array_equal(frame[SHORT_DIALOG_POS.y][SHORT_DIALOG_POS.x], COLOR_WHITE):
+						self._ser.write(b"0")
+						print("re-apply repel", PAD)
 						# repel used up
 						for d in (2, 1, 1):
 							self.waitAndRender(d)
 							self.press("A")
+						self.waitAndRender(1)
+						self.press("a", 0.5)
 					frame = self.getframe()
 
 				print("encounter!", PAD)

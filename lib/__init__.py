@@ -9,6 +9,7 @@ from collections.abc import Callable
 from collections.abc import Generator
 from datetime import datetime
 from enum import IntEnum
+from typing import Any
 from typing import NamedTuple
 from typing import TypeVar
 
@@ -42,6 +43,29 @@ class ReturnCode(IntEnum):
 	CRASH = -1
 	OK = 0
 	SHINY = 1
+
+
+class Config(NamedTuple):
+	serialPort: str
+	notifyShiny: bool = False
+	renderCapture: bool = True
+	sendAllEncounters: bool = False
+	catchCrashes: bool = False
+	showLastRunDuration: bool = False
+
+	def __str__(self) -> str:
+		def getMark(b: bool) -> str:
+			return "\u2705" if b is True else "\u274E"
+
+		# works ¯\_(ツ)_/¯
+		return "\n".join((
+			f"   serial port: {self.serialPort}",
+			f"   {getMark(self.notifyShiny)} notify shiny encounters",
+			f"   {getMark(self.renderCapture)} render captured video",
+			f"   {getMark(self.sendAllEncounters)} send all encounters",
+			f"   {getMark(self.catchCrashes)} catch game crashes",
+			f"   {getMark(self.showLastRunDuration)} show last run duration",
+		))
 
 
 PAD = " " * 32
@@ -265,16 +289,14 @@ def jsonGetDefault(data: dict[K, T], key: K, default: T) -> tuple[dict[K, T], T]
 class Script:
 	storeEncounters: bool = True
 
-	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
+	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
 		self._ser = ser
 		self._vid = vid
 
-		self.CFG_NOTIFY: bool = kwargs.get("CFG_NOTIFY", False)
-		self.CFG_RENDER: bool = kwargs.get("CFG_RENDER", True)
-		self.CFG_SEND_ALL_ENCOUNTERS: bool = kwargs.get("CFG_SEND_ALL_ENCOUNTERS", False)
-		self.CFG_CATCH_CRASH: bool = kwargs.get("CFG_CATCH_CRASH", False)
+		self.config: Config = config
 
 		self.windowName: str = kwargs.get("windowName", "Game")
+		self.extraStats: list[tuple[str, Any]] = list()
 
 	@abstractmethod
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
@@ -283,7 +305,7 @@ class Script:
 	def getframe(self) -> numpy.ndarray:
 		_, frame = self._vid.read()
 
-		if self.CFG_RENDER is True:
+		if self.config.renderCapture is True:
 			cv2.imshow(self.windowName, frame)
 
 		if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -291,11 +313,11 @@ class Script:
 		else:
 			return frame
 
-	def press(self, s: str, duration: float = 0.05) -> None:
+	def press(self, s: str, duration: float = 0.05, render: bool = False) -> None:
 		print(f"{datetime.now().strftime('%H:%M:%S')} '{s}' for {duration} {PAD}\r", end="")
 
 		self._ser.write(s.encode())
-		if duration >= 0.5:
+		if render is True or duration >= 0.5:
 			tEnd = time.time() + duration
 			while time.time() < tEnd:
 				self.getframe()
@@ -440,30 +462,11 @@ class Script:
 		self.press("A")
 		self.waitAndRender(1)
 		self.press("A")
-
-	def checkShinyDialog(self, dialogPos: Pos, dialogColor: Pixel, delay: float = 2) -> tuple[ReturnCode, numpy.ndarray]:
-		self.awaitPixel(dialogPos, dialogColor)
-		print(f"dialog start{PAD}\r", end="")
-
-		crashed = not self.awaitNotPixel(dialogPos, dialogColor)
-		print(f"dialog end{PAD}\r", end="")
-		t0 = time.time()
-
-		encounterFrame = self.getframe()
-		crashed |= not self.awaitPixel(dialogPos, dialogColor)
-
-		diff = time.time() - t0
-		print(f"dialog delay: {diff:.3f}s{PAD}")
-
-		self.waitAndRender(0.5)
-
-		if diff >= 89 or crashed is True:
-			raise RunCrash
-		else:
-			return (ReturnCode.SHINY if 10 > diff > delay else ReturnCode.OK, encounterFrame)
+		self.waitAndRender(1)
+		self.press("A")
 
 	def _sendTelegram(self, **kwargs) -> None:
-		if self.CFG_NOTIFY is True:
+		if self.config.notifyShiny is True:
 			try:
 				telegram_send.send(**kwargs)
 			except telegram.error.NetworkError as e:

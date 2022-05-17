@@ -6,6 +6,7 @@ import serial
 
 import lib
 from lib import COLOR_WHITE
+from lib import Config
 from lib import PAD
 from lib import ReturnCode
 from lib.gen4 import ENCOUNTER_DIALOG_POS
@@ -14,11 +15,11 @@ from lib.gen4 import OWN_POKEMON_POS
 
 
 class StarterScript(Gen4Script):
-	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
-		super().__init__(ser, vid, **kwargs)
+	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
+		super().__init__(ser, vid, config, **kwargs, windowName="Pokermans: Starter")
 
 		self.starter = int(kwargs["starter"])
-		self.windowName = "Pokermans: " + ("Turtwig", "Chimchar", "Piplup")[self.starter - 1]
+		self.extraStats.append(("Resetting for", ("Turtwig", "Chimchar", "Piplup")[self.starter - 1]))
 
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		self.resetGame()

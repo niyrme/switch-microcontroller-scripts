@@ -12,9 +12,9 @@ A repo containing my scripts running on the base of [this](https://github.com/as
 
 # How to use
 1. Rename `sample.config.json` to `config.json`
-2. Update the `serialPort` in `config.json` to the desired serial port
-3. Run any of the scripts as python modules: `python3 -m gen4`
-	- add `-h` or `--help` as an argument to get a bit more info about each file (example: `python3 -m gen4 --help`)
+2. Update the settings in `config.json` (if so desired)
+3. Run any of the packages as python modules: `python3 -m gen4`
+	- add `-h` or `--help` as an argument to get a bit more info about each script (example: `python3 -m gen4 --help <script>`)
 
 
 # Script list
@@ -30,6 +30,8 @@ Run as `python3 -m gen4 <script>` (or add `-h`/`--help` flag for more info)
 		- X menu:
 			- Map tile position: Row 2 Col 1
 			- Bag tile position: Row 1 Col 3
+- `darkrai` for Darkrai
+	- Requirements: Stand in front of Darkrai
 - `legendary` for Dialga/Palkia
 	- Requirements: Stand in front of Legendary
 - `pixie` for Uxie and Azelf

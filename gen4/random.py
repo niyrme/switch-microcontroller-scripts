@@ -1,5 +1,6 @@
 import time
 from itertools import cycle
+from typing import Literal
 
 import cv2
 import numpy
@@ -7,6 +8,7 @@ import serial
 
 from lib import COLOR_BLACK
 from lib import COLOR_WHITE
+from lib import Config
 from lib import LOADING_SCREEN_POS
 from lib import PAD
 from lib import ReturnCode
@@ -16,10 +18,10 @@ from lib.gen4 import OWN_POKEMON_POS
 
 
 class RandomScript(Gen4Script):
-	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, **kwargs) -> None:
-		super().__init__(ser, vid, **kwargs, windowName="Pokermans: Random")
+	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
+		super().__init__(ser, vid, config, **kwargs, windowName="Pokermans: Random")
 
-		direction = kwargs["direction"]
+		direction: Literal["h", "v"] = kwargs["direction"]
 		assert direction in ("h", "v")
 
 		self.directions = cycle(
