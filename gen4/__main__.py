@@ -13,6 +13,7 @@ import telegram
 import telegram_send
 
 import lib
+from .arceus import ArceusScript
 from .cresselia import CresseliaScript
 from .darkrai import DarkraiScript
 from .legendary import LegendaryScript
@@ -164,6 +165,7 @@ def main() -> int:
 
 	# parsers for each script
 	scriptParser = parser.add_subparsers(dest="script")
+	scriptParser.add_parser("arceus", description="reset Arceus (not yet implemented)")
 	scriptParser.add_parser("cresselia", description="reset Cresselia")
 	scriptParser.add_parser("darkrai", description="reset Darkrai")
 	scriptParser.add_parser("legendary", description="reset Dialga/Palkia")
@@ -182,6 +184,7 @@ def main() -> int:
 	scriptName = args["script"]
 
 	scripts: dict[str, Type[Script]] = {
+		"arceus": ArceusScript,
 		"cresselia": CresseliaScript,
 		"darkrai": DarkraiScript,
 		"legendary": LegendaryScript,

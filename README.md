@@ -21,24 +21,26 @@ A repo containing my scripts running on the base of [this](https://github.com/as
 
 ## Pokémon Brilliant Diamon/Shining Pearl
 Run as `python3 -m gen4 <script>` (or add `-h`/`--help` flag for more info)
+- `arceus` for Arceus
+  - Not yet implemented
 - `cresselia` for Cresselia
-	- Requirements:
-		- Stand in front of cresselia
-		- Map app active in poketch
-		- Repel in first slot in bag
-		- First pokemon in party Level < 50 but > 10 (so that only cresselia will encounter with repel)
-		- X menu:
-			- Map tile position: Row 2 Col 1
-			- Bag tile position: Row 1 Col 3
+   - Requirements:
+      - Stand in front of cresselia
+      - Map app active in poketch
+      - Repel in first slot in bag
+      - First pokemon in party Level < 50 but > 10 (so that only cresselia will encounter with repel)
+      - X menu:
+         - Map tile position: Row 2 Col 1
+         - Bag tile position: Row 1 Col 3
 - `darkrai` for Darkrai
-	- Requirements: Stand in front of Darkrai
+   - Requirements: Stand in front of Darkrai
 - `legendary` for Dialga/Palkia
-	- Requirements: Stand in front of Legendary
+   - Requirements: Stand in front of Legendary
 - `pixie` for Uxie and Azelf
-	- not Mesprit because it roams around the map
-	- Requirements: Stand in front of Pixie
+   - not Mesprit because it roams around the map
+   - Requirements: Stand in front of Pixie
 - `random` for random encounters in orthogonal directions
 - `shaymin` for Shaymin
-	- Requirements: Stand in front of Shaymin
+   - Requirements: Stand in front of Shaymin
 - `starter` for a starter
-	- Requirements: Stand in front of Transition into Lake Verity
+   - Requirements: Stand in front of Transition into Lake Verity
