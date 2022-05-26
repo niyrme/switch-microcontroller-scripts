@@ -4,10 +4,10 @@ import serial
 
 from lib import Config
 from lib import ReturnCode
-from lib.gen4 import Gen4Script
+from lib.pokemon.bdsp import Gen4Script
 
 
-class ArceusScript(Gen4Script):
+class Script(Gen4Script):
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
 		super().__init__(ser, vid, config, **kwargs, windowName="Pokermans: Arceus")
 		raise NotImplementedError("Arceus script is currently only a placeholder for the real thing later on")

@@ -1,3 +1,4 @@
+import argparse
 import contextlib
 import json
 import os
@@ -288,6 +289,11 @@ def jsonGetDefault(data: dict[K, T], key: K, default: T) -> tuple[dict[K, T], T]
 
 class Script:
 	storeEncounters: bool = True
+	scriptName: str
+
+	@staticmethod
+	def parser() -> argparse.ArgumentParser:
+		return argparse.ArgumentParser(add_help=False)
 
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
 		self._ser = ser

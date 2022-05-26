@@ -1,4 +1,6 @@
 import argparse
+import importlib
+import os
 import sys
 import time
 from datetime import datetime
@@ -13,14 +15,6 @@ import telegram
 import telegram_send
 
 import lib
-from .arceus import ArceusScript
-from .cresselia import CresseliaScript
-from .darkrai import DarkraiScript
-from .legendary import LegendaryScript
-from .pixie import PixieScript
-from .random import RandomScript
-from .shaymin import ShayminScript
-from .starter import StarterScript
 from lib import Config
 from lib import jsonGetDefault
 from lib import PAD
@@ -159,40 +153,30 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script])
 
 def main() -> int:
 	# main parser for general arguments
-	parser = argparse.ArgumentParser(prog="gen4", description="main runner for running scripts")
+	parser = argparse.ArgumentParser(prog="bdsp", description="main runner for running scripts")
 	parser.add_argument("-c", "--configFile", type=str, dest="configFile", default="config.json", help="configuration file (defualt: %(default)s)")
-	parser.add_argument("-e", "--encounterFile", type=str, dest="encounterFile", default="shinyGrind.json", help="configuration file (defualt: %(default)s)")
+	parser.add_argument("-e", "--encounterFile", type=str, dest="encounterFile", default="shinyGrind.json", help="file in which encounters are stored (defualt: %(default)s)")
 
 	# parsers for each script
 	scriptParser = parser.add_subparsers(dest="script")
-	scriptParser.add_parser("arceus", description="reset Arceus (not yet implemented)")
-	scriptParser.add_parser("cresselia", description="reset Cresselia")
-	scriptParser.add_parser("darkrai", description="reset Darkrai")
-	scriptParser.add_parser("legendary", description="reset Dialga/Palkia")
-	scriptParser.add_parser("pixie", description="reset Uxie/Azelf")
-	scriptParser.add_parser("shaymin", description="reset Shaymin")
 
-	randomScriptParser = scriptParser.add_parser("random", description="reset random encounters")
-	randomScriptParser.add_argument("direction", type=str, choices={"h", "v"}, help="direction to run in {(h)orizontal, (v)ertical} direction")
-	randomScriptParser.add_argument("delay", type=float, help="delay betweeen changing direction")
+	scripts: dict[str, Type[Script]] = dict()
 
-	starterScriptParser = scriptParser.add_parser("starter", description="reset starter")
-	starterScriptParser.add_argument("starter", type=int, choices={1, 2, 3}, help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
+	for modName in (
+		s[:-3] for s in filter(
+			lambda f: str(f).endswith(".py") and not str(f).startswith("__"),
+			os.listdir(os.path.dirname(os.path.abspath(__file__))),
+		)
+	):
+		mod = importlib.import_module(f"pokemon.bdsp.{modName}")
+		script = mod.Script
+		assert modName not in scripts.keys(), f"script '{modName}' already exists (got name from {script.__name__})"
+		scriptParser.add_parser(modName, parents=(script.parser(),))
+		scripts[modName] = script
 
 	args = parser.parse_args().__dict__
 
 	scriptName = args["script"]
-
-	scripts: dict[str, Type[Script]] = {
-		"arceus": ArceusScript,
-		"cresselia": CresseliaScript,
-		"darkrai": DarkraiScript,
-		"legendary": LegendaryScript,
-		"pixie": PixieScript,
-		"shaymin": ShayminScript,
-		"random": RandomScript,
-		"starter": StarterScript,
-	}
 
 	jsn, encounters = jsonGetDefault(
 		lib.loadJson(str(args["encounterFile"])),

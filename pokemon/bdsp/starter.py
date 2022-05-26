@@ -1,3 +1,4 @@
+import argparse
 import time
 
 import cv2
@@ -9,12 +10,20 @@ from lib import COLOR_WHITE
 from lib import Config
 from lib import PAD
 from lib import ReturnCode
-from lib.gen4 import ENCOUNTER_DIALOG_POS
-from lib.gen4 import Gen4Script
-from lib.gen4 import OWN_POKEMON_POS
+from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
+from lib.pokemon.bdsp import Gen4Script
+from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 
-class StarterScript(Gen4Script):
+class Script(Gen4Script):
+	scriptName = "starter"
+
+	@staticmethod
+	def parser() -> argparse.ArgumentParser:
+		p = argparse.ArgumentParser(description="reset starter", add_help=False)
+		p.add_argument("starter", type=int, choices={1, 2, 3}, help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
+		return p
+
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
 		super().__init__(ser, vid, config, **kwargs, windowName="Pokermans: Starter")
 

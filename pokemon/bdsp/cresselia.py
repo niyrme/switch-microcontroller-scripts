@@ -7,11 +7,11 @@ from lib import COLOR_WHITE
 from lib import Config
 from lib import LOADING_SCREEN_POS
 from lib import ReturnCode
-from lib.gen4 import Gen4Script
-from lib.gen4 import SHORT_DIALOG_POS
+from lib.pokemon.bdsp import Gen4Script
+from lib.pokemon.bdsp import SHORT_DIALOG_POS
 
 
-class CresseliaScript(Gen4Script):
+class Script(Gen4Script):
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
 		super().__init__(ser, vid, config, **kwargs, windowName="Pokermans: Cresselia")
 
