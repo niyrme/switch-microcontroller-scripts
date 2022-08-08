@@ -31,6 +31,7 @@ class Gen4Script(Script):
 		raise NotImplementedError
 
 	def checkShinyDialog(self, dialogPos: Pos, dialogColor: Pixel, delay: float = 2) -> tuple[ReturnCode, numpy.ndarray]:
+		logging.debug("waiting for dialog")
 		self.awaitPixel(dialogPos, dialogColor)
 		print(f"dialog start{PAD}\r", end="")
 
@@ -43,7 +44,6 @@ class Gen4Script(Script):
 
 		diff = time.time() - t0
 		logging.log(LOG_DELAY, f"dialog delay: {diff:.3f}")
-		logging.debug(f"dialog delay: {diff:.3f}s")
 		print(f"dialog delay: {diff:.3f}s{PAD}")
 
 		self.waitAndRender(0.5)
@@ -55,10 +55,10 @@ class Gen4Script(Script):
 
 	def awaitInGame(self) -> None:
 		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
-		print("startup screen", PAD)
+		logging.debug("startup screen")
 
 		self.whilePixel(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
-		print("after startup", PAD)
+		logging.debug("after startup")
 
 		self.waitAndRender(1)
 
@@ -71,13 +71,13 @@ class Gen4Script(Script):
 
 		# loading screen to game
 		crashed = not self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
-		print("loading screen", PAD)
+		logging.debug("loading screen")
 		crashed |= not self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_BLACK)
 
 		if crashed is True:
 			raise RunCrash
 
-		print("in game", PAD)
+		logging.debug("in game")
 		self.waitAndRender(1)
 
 	def resetRoamer(self) -> tuple[ReturnCode, numpy.ndarray]:
