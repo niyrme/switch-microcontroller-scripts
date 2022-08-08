@@ -1,5 +1,6 @@
 import argparse
 import importlib
+import logging
 import os
 import sys
 import time
@@ -15,32 +16,30 @@ import telegram
 import telegram_send
 
 import lib
+from lib import Button
 from lib import Config
 from lib import jsonGetDefault
-from lib import PAD
 from lib import ReturnCode
 from lib import Script
+from lib.pokemon import LOG_DELAY
 
 
 def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script]) -> int:
-	configJSON: dict[str, Union[str, bool]] = lib.loadJson(str(args["configFile"]))
+	configJSON: dict[str, Union[str, bool]] = lib.loadJson(str(args.pop("configFile")))
 
 	config = Config(
-		str(configJSON.get("serialPort", "COM0")),
-		bool(configJSON.get("notifyShiny", False)),
-		bool(configJSON.get("renderCapture", True)),
-		bool(configJSON.get("sendAllEncounters", False)),
-		bool(configJSON.get("catchCrashes", False)),
-		bool(configJSON.get("showLastRunDuration", False)),
+		str(configJSON.pop("serialPort", "COM0")),
+		bool(configJSON.pop("notifyShiny", False)),
+		bool(configJSON.pop("renderCapture", True)),
+		bool(configJSON.pop("sendAllEncounters", False)),
+		bool(configJSON.pop("catchCrashes", False)),
+		bool(configJSON.pop("showLastRunDuration", False)),
 	)
 
-	print("Config:", PAD)
-	print(config, "\n")
-
-	print(f"start encounters: {encountersStart}")
+	logging.info(f"start encounters: {encountersStart}")
 
 	with serial.Serial(config.serialPort, 9600) as ser, lib.shh(ser):
-		print("setting up cv2. This may take a while...")
+		logging.info("setting up cv2. This may take a while...")
 		vid: cv2.VideoCapture = cv2.VideoCapture(0)
 		vid.set(cv2.CAP_PROP_FPS, 30)
 		vid.set(cv2.CAP_PROP_FRAME_WIDTH, 768)
@@ -53,8 +52,9 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script])
 		encounters = encountersStart
 		crashes = 0
 
-		script = scriptClass(ser, vid, config, **args)
+		script = scriptClass(ser, vid, config, **args, windowName=f"Pokermans: {str(args['script']).capitalize()}")
 		script.sendMsg("Script started")
+		logging.info("script started")
 		script.waitAndRender(1)
 		try:
 			tStart = datetime.now()
@@ -84,8 +84,9 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script])
 
 				runStart = datetime.now()
 				try:
-					encounters, code, encounterFrame = script.main(encounters)
+					encounters, code, encounterFrame = script(encounters)
 				except lib.RunCrash:
+					logging.warning("script crashed, reset switch to home screen and press ctrl+c to continue")
 					if script.config.catchCrashes is True:
 						print("\a")
 						script.sendMsg("script crashed!")
@@ -95,7 +96,7 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script])
 						except KeyboardInterrupt:
 							pass
 					for _ in range(3):
-						script.press("A")
+						script.press(Button.BUTTON_A)
 						script.waitAndRender(1.5)
 					crashes += 1
 					continue
@@ -104,21 +105,14 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script])
 
 				runDuration = datetime.now() - runStart
 
-				if code == ReturnCode.CRASH:
-					script.press("A")
-					script.waitAndRender(1)
-					script.press("A")
-					crashes += 1
-					continue
-				elif code == ReturnCode.SHINY:
+				logging.debug(f"returncode: {code.name}")
+				if code == ReturnCode.SHINY:
+					logging.info("found a SHINY!!")
 					script.sendMsg("Found a SHINY!!")
 
 					script.sendScreenshot(encounterFrame)
 
 					ser.write(b"0")
-					print("SHINY!!")
-					print("SHINY!!")
-					print("SHINY!!")
 					print("\a")
 
 					try:
@@ -139,44 +133,61 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script])
 							print(f"invalid command: {cmd}", file=sys.stderr)
 				elif code == ReturnCode.OK:
 					if script.config.sendAllEncounters is True:
+						logging.debug("send screenshot")
 						script.sendScreenshot(encounterFrame)
 				else:
-					print(f"got invalid return code: {code}", file=sys.stderr)
-		except (KeyboardInterrupt, EOFError):
-			pass
+					logging.error(f"got invalid return code: {code.name} ({code})")
+		except (KeyboardInterrupt, EOFError, lib.RunStop):
+			logging.info("script stopped")
+		except Exception as e:
+			s = f"Program crashed: {e}"
+			script.sendMsg(s)
+			logging.error(s)
 		finally:
 			ser.write(b"0")
 			vid.release()
 			cv2.destroyAllWindows()
 			return encounters
 
+	raise AssertionError("unreachable")
+
 
 def main() -> int:
-	# main parser for general arguments
 	parser = argparse.ArgumentParser(prog="bdsp", description="main runner for running scripts")
-	parser.add_argument("-c", "--configFile", type=str, dest="configFile", default="config.json", help="configuration file (defualt: %(default)s)")
-	parser.add_argument("-e", "--encounterFile", type=str, dest="encounterFile", default="shinyGrind.json", help="file in which encounters are stored (defualt: %(default)s)")
+	parser.add_argument("-d", "--debug", action="store_const", const=logging.DEBUG, default=logging.INFO, dest="debug", help="output debugging info")
+	parser.add_argument("-s", "--shiny-dialog-delay", action="store_const", const=LOG_DELAY, default=logging.INFO, dest="shinyDelay", help="log dialog delay to file")
+	parser.add_argument("-c", "--config-file", type=str, dest="configFile", default="config.json", help="configuration file (defualt: %(default)s)")
+	parser.add_argument("-e", "--encounter-file", type=str, dest="encounterFile", default="shinyGrind.json", help="file in which encounters are stored (defualt: %(default)s)")
 
-	# parsers for each script
-	scriptParser = parser.add_subparsers(dest="script")
-
-	scripts: dict[str, Type[Script]] = dict()
-
-	for modName in (
+	scriptNames = tuple(
 		s[:-3] for s in filter(
-			lambda f: str(f).endswith(".py") and not str(f).startswith("__"),
+			lambda f: str(f).endswith(".py") and not str(f).startswith("_"),
 			os.listdir(os.path.dirname(os.path.abspath(__file__))),
 		)
-	):
-		mod = importlib.import_module(f"pokemon.bdsp.{modName}")
-		script = mod.Script
-		assert modName not in scripts.keys(), f"script '{modName}' already exists (got name from {script.__name__})"
-		scriptParser.add_parser(modName, parents=(script.parser(),))
-		scripts[modName] = script
+	)
 
-	args = parser.parse_args().__dict__
+	parser.add_argument("script", choices=scriptNames)
+
+	_args, rest = parser.parse_known_args()
+	args = vars(_args)
+
+	logging.root.setLevel(min(args[k] for k in ("debug", "shinyDelay")))
+
+	logging.debug(f"setting log-level to {logging.root.level}")
+	logging.debug(f"scripts: {', '.join(scriptNames)}")
 
 	scriptName = args["script"]
+	try: mod = importlib.import_module(f"pokemon.bdsp.{scriptName}")
+	except ModuleNotFoundError:
+		logging.critical(f"failed to import module '{scriptName}'")
+		return 1
+
+	try: script: Type[Script] = mod.Script
+	except AttributeError:
+		logging.critical(f"failed to get script from '{scriptName}'")
+		return 1
+
+	assert script is not None
 
 	jsn, encounters = jsonGetDefault(
 		lib.loadJson(str(args["encounterFile"])),
@@ -184,29 +195,38 @@ def main() -> int:
 		0,
 	)
 
-	script = scripts[scriptName]
-	assert script is not None
+	scriptArgs = vars(script.parser().parse_args(rest))
+
+	logging.info(f"running script: {scriptName}")
 
 	try:
-		encounters = _main(args, encounters, script)
-	except lib.RunStop:
-		print("\033c", end="")
+		encounters = _main(args | scriptArgs, encounters, script)
 	except Exception as e:
-		print(f"Program crashed: {e}", file=sys.stderr)
+		logging.error(f"program crashed: {e}")
 		try:
 			telegram_send.send(messages=(f"Program crashed: {e}",))
 		except telegram.error.NetworkError as ne:
-			print(f"telegram_send: connection failed: {ne}", file=sys.stderr)
+			logging.error(f"telegram_send: connection failed: {ne}")
 		raise
-	else:
-		print("\033c", end="")
 	finally:
 		if script.storeEncounters is True:
 			lib.dumpJson(str(args["encounterFile"]), jsn | {scriptName: encounters})
-			print(f"saved encounters.. ({encounters}){PAD}\n")
+			logging.info(f"saved encounters.. ({encounters})")
 
 	return 0
 
 
 if __name__ == "__main__":
+	now = datetime.now()
+	os.makedirs("logs", exist_ok=True)
+	logging.basicConfig(
+		format="%(asctime)s [%(levelname)s] %(message)s",
+		level=logging.INFO,
+		datefmt="%Y/%m/%d-%H:%M:%S",
+		handlers=(
+			logging.StreamHandler(),
+			logging.FileHandler(f"logs/switchcontroller-({now.strftime('%Y-%m-%d')})-({now.strftime('%H-%M-%S')}).log", "w+"),
+		),
+	)
+
 	raise SystemExit(main())

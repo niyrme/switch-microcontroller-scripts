@@ -1,17 +1,14 @@
 import argparse
+import logging
 import time
 from itertools import cycle
 from typing import Literal
 
-import cv2
 import numpy
-import serial
 
-from lib import COLOR_BLACK
+from lib import Button
 from lib import COLOR_WHITE
-from lib import Config
 from lib import LOADING_SCREEN_POS
-from lib import PAD
 from lib import ReturnCode
 from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
 from lib.pokemon.bdsp import Gen4Script
@@ -20,25 +17,28 @@ from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 class Script(Gen4Script):
 	@staticmethod
-	def parser() -> argparse.ArgumentParser:
-		p = argparse.ArgumentParser(description="reset random encounters", add_help=False)
+	def parser(*args, **kwargs) -> argparse.ArgumentParser:
+		p = super(Script, Script).parser(*args, **kwargs, description="reset random encounters")
 		p.add_argument("direction", type=str, choices={"h", "v"}, help="direction to run in {(h)orizontal, (v)ertical} direction")
 		p.add_argument("delay", type=float, help="delay betweeen changing direction")
 		return p
 
-	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
-		super().__init__(ser, vid, config, **kwargs, windowName="Pokermans: Random")
+	def __init__(self, *args, **kwargs) -> None:
+		super().__init__(*args, **kwargs)
 
 		direction: Literal["h", "v"] = kwargs["direction"]
 		assert direction in ("h", "v")
 
 		self.directions = cycle(
-			("a", "d")
+			(Button.L_LEFT, Button.L_RIGHT)
 			if direction == "h"
-			else ("w", "s"),
+			else (Button.L_UP, Button.L_DOWN),
 		)
 
-		self.delay = float(kwargs.get("delay"))
+		self.delay = float(kwargs["delay"])
+
+		logging.debug(f"directions: {self.directions}")
+		logging.debug(f"delay: {self.delay}")
 
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		tEnd = time.time()
@@ -52,7 +52,7 @@ class Script(Gen4Script):
 				self._ser.write(next(self.directions).encode())
 				tEnd = time.time() + self.delay
 			frame = self.getframe()
-		print("encounter!", PAD)
+		logging.info("encounter!")
 		self._ser.write(b"0")
 
 		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
@@ -62,24 +62,9 @@ class Script(Gen4Script):
 		if rc == ReturnCode.SHINY:
 			return (0, ReturnCode.SHINY, encounterFrame)
 
-		self.whileNotPixel(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press("B"))
+		self.whileNotPixel(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press(Button.BUTTON_B))
 		self.waitAndRender(1)
 
-		while True:
-			self.press("w")
-			self.waitAndRender(0.5)
-			self.press("A")
-			self.waitAndRender(0.5)
-			self.press("B")
-
-			if self.awaitPixel(OWN_POKEMON_POS, COLOR_BLACK, timeout=10):
-				print("fade out", PAD)
-				break
-			else:
-				self.waitAndRender(15)
-
-		self.awaitNotPixel(OWN_POKEMON_POS, COLOR_BLACK)
-		print("return to game", PAD)
-		self.waitAndRender(0.5)
+		self.runFromEncounter()
 
 		return (e + 1, ReturnCode.OK, encounterFrame)

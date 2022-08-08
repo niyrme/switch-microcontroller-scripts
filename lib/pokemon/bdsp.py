@@ -1,9 +1,12 @@
+import logging
 import time
 from abc import abstractmethod
 from itertools import cycle
 
 import numpy
 
+from . import LOG_DELAY
+from lib import Button
 from lib import COLOR_BLACK
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
@@ -39,6 +42,8 @@ class Gen4Script(Script):
 		crashed |= not self.awaitPixel(dialogPos, dialogColor)
 
 		diff = time.time() - t0
+		logging.log(LOG_DELAY, f"dialog delay: {diff:.3f}")
+		logging.debug(f"dialog delay: {diff:.3f}s")
 		print(f"dialog delay: {diff:.3f}s{PAD}")
 
 		self.waitAndRender(0.5)
@@ -48,11 +53,11 @@ class Gen4Script(Script):
 		else:
 			return (ReturnCode.SHINY if 10 > diff > delay else ReturnCode.OK, encounterFrame)
 
-	def awaitInGameSpam(self) -> None:
-		self.awaitPixel(pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
+	def awaitInGame(self) -> None:
+		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
 		print("startup screen", PAD)
 
-		self.whilePixel(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press("A"))
+		self.whilePixel(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
 		print("after startup", PAD)
 
 		self.waitAndRender(1)
@@ -61,13 +66,13 @@ class Gen4Script(Script):
 		if numpy.array_equal(frame[LOADING_SCREEN_POS.y][LOADING_SCREEN_POS.x], (41, 41, 41)):
 			raise RunCrash
 
-		self.press("A")
+		self.press(Button.BUTTON_A)
 		self.waitAndRender(3)
 
 		# loading screen to game
-		crashed = not self.awaitPixel(pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
+		crashed = not self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
 		print("loading screen", PAD)
-		crashed |= not self.awaitNotPixel(pos=LOADING_SCREEN_POS, pixel=COLOR_BLACK)
+		crashed |= not self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_BLACK)
 
 		if crashed is True:
 			raise RunCrash
@@ -76,79 +81,81 @@ class Gen4Script(Script):
 		self.waitAndRender(1)
 
 	def resetRoamer(self) -> tuple[ReturnCode, numpy.ndarray]:
+		logging.debug("reset roamer")
 		print("travel to Jubilife City", PAD)
 		self.waitAndRender(0.5)
-		self.press("X")
+		self.press(Button.BUTTON_X)
 		self.waitAndRender(0.5)
-		self.press("+")
+		self.press(Button.BUTTON_PLUS)
 		self.waitAndRender(1)
-		self.press("z", 3)
-		self.press("e", 0.3, render=True)
-		self.press("A")
+		self.press(Button.L_DOWN_LEFT, 3)
+		self.press(Button.L_UP_RIGHT, 0.3, render=True)
+		self.press(Button.BUTTON_A)
 		self.waitAndRender(1.5)
-		self.press("A")
+		self.press(Button.BUTTON_A)
 
 		while not self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE):
+			# ???
 			for _ in range(3):
-				self.press("B")
+				self.press(Button.BUTTON_B)
 				self.waitAndRender(0.5)
 
-			self.press("z", 3)
-			self.press("e", 0.3, render=True)
-			self.press("A")
+			self.press(Button.L_DOWN_LEFT, 3)
+			self.press(Button.L_UP_RIGHT, 0.3, render=True)
+			self.press(Button.BUTTON_A)
 			self.waitAndRender(1.5)
-			self.press("A")
+			self.press(Button.BUTTON_A)
 
 		self.waitAndRender(2)
 
-		self.press("R")
+		self.press(Button.BUTTON_R)
 		self.waitAndRender(0.2)
 		print("run towards start location", PAD)
-		self.press("a", 0.8)
-		self.press("s", 6.5)
+		self.press(Button.L_LEFT, 0.8)
+		self.press(Button.L_DOWN, 6.5)
 
 		areaReloads = 0
 		while True:
-			self.press("R")
+			self.press(Button.BUTTON_R)
 			self.waitAndRender(1)
 			encounter = self.awaitNearPixel(ROAMER_MAP_POS, ROAMER_MAP_COLOR, 45, 3)
 
-			self.press("R")
+			self.press(Button.BUTTON_R)
 			self.waitAndRender(1)
 
 			if encounter is True:
 				print(f"found after reloading area {areaReloads} times", PAD)
 				print("roamer in area", PAD)
-				self.press("w", 0.3)
+				self.press(Button.L_UP, 0.3)
 				self.waitAndRender(0.1)
 
 				print("open backpack", PAD)
-				self.press("X")
+				self.press(Button.BUTTON_X)
 				self.waitAndRender(0.5)
 
-				self.press("w")
+				self.press(Button.L_UP)
 				self.waitAndRender(0.1)
-				self.press("d")
+				self.press(Button.L_RIGHT)
 				self.waitAndRender(0.1)
-				self.press("d")
+				self.press(Button.L_RIGHT)
 				self.waitAndRender(0.1)
 
-				self.press("A")
+				self.press(Button.BUTTON_A)
 				self.waitAndRender(1.5)
 
 				for _ in range(4):
-					self.press("d")
+					self.press(Button.L_RIGHT)
 					self.waitAndRender(0.1)
 
 				print("use repel", PAD)
-				self.press("A")
+				self.press(Button.BUTTON_A)
 				self.waitAndRender(1)
-				self.press("A")
+				self.press(Button.BUTTON_A)
 				self.waitAndRender(1)
-				self.press("A")
+				self.press(Button.BUTTON_A)
 				for _ in range(4):
 					self.waitAndRender(1)
-					self.press("B")
+					self.press(Button.BUTTON_B)
 
 				self._ser.write(b"a")
 
@@ -169,9 +176,9 @@ class Gen4Script(Script):
 						# repel used up
 						for d in (2, 1, 1):
 							self.waitAndRender(d)
-							self.press("A")
+							self.press(Button.BUTTON_A)
 						self.waitAndRender(1)
-						self.press("a", 0.5)
+						self.press(Button.BUTTON_A, 0.5)
 					frame = self.getframe()
 
 				print("encounter!", PAD)
@@ -179,6 +186,27 @@ class Gen4Script(Script):
 				self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
 				return self.checkShinyDialog(ENCOUNTER_DIALOG_POS, COLOR_WHITE, 1.5)
 			else:
+				logging.debug("reload area")
 				areaReloads += 1
-				self.press("w", 2)
-				self.press("s", 2.1)
+				self.press(Button.L_UP, 2)
+				self.press(Button.L_DOWN, 2.1)
+
+	def runFromEncounter(self) -> None:
+		logging.debug("run from encounter")
+		while True:
+			self.press(Button.L_UP)
+			self.waitAndRender(0.5)
+			self.press(Button.BUTTON_A)
+			self.waitAndRender(0.5)
+			self.press(Button.BUTTON_B)
+
+			if self.awaitPixel(OWN_POKEMON_POS, COLOR_BLACK, 10):
+				print("fade out", PAD)
+				break
+			else:
+				self.waitAndRender(15)
+				logging.debug("failed to run or wrong option selected (due to lag, or some other thing)")
+
+		self.awaitNotPixel(OWN_POKEMON_POS, COLOR_BLACK)
+		print("return to game")
+		self.waitAndRender(1)

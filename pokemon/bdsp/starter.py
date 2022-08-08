@@ -1,13 +1,11 @@
 import argparse
 import time
 
-import cv2
 import numpy
-import serial
 
 import lib
+from lib import Button
 from lib import COLOR_WHITE
-from lib import Config
 from lib import PAD
 from lib import ReturnCode
 from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
@@ -16,54 +14,52 @@ from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 
 class Script(Gen4Script):
-	scriptName = "starter"
-
 	@staticmethod
-	def parser() -> argparse.ArgumentParser:
-		p = argparse.ArgumentParser(description="reset starter", add_help=False)
+	def parser(*args, **kwargs) -> argparse.ArgumentParser:
+		p = super(Script, Script).parser(*args, **kwargs, description="reset starter")
 		p.add_argument("starter", type=int, choices={1, 2, 3}, help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
 		return p
 
-	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
-		super().__init__(ser, vid, config, **kwargs, windowName="Pokermans: Starter")
+	def __init__(self, *args, **kwargs) -> None:
+		super().__init__(*args, **kwargs)
 
 		self.starter = int(kwargs["starter"])
 		self.extraStats.append(("Resetting for", ("Turtwig", "Chimchar", "Piplup")[self.starter - 1]))
 
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		self.resetGame()
-		self.awaitInGameSpam()
+		self.awaitInGame()
 
-		self.press("w", 0.5)
+		self.press(Button.L_UP, 0.5)
 		self.waitAndRender(1)
 
 		for _ in range(12):
 			self.waitAndRender(2)
-			self.press("A")
+			self.press(Button.BUTTON_A)
 		for _ in range(4):
 			self.waitAndRender(5.5)
-			self.press("A")
+			self.press(Button.BUTTON_A)
 		for _ in range(3):
 			self.waitAndRender(2)
-			self.press("A")
+			self.press(Button.BUTTON_A)
 
 		print(f"move to bag{PAD}\r", end="")
 		for v in (7, 2, 2, 5, 2, 5):
 			self.waitAndRender(v)
-			self.press("A")
+			self.press(Button.BUTTON_A)
 
 		print(f"select starter{PAD}\r", end="")
-		self.press("B")
+		self.press(Button.BUTTON_B)
 		self.waitAndRender(2)
 		for _ in range(self.starter - 1):
-			self.press("d", duration=0.2)
+			self.press(Button.L_RIGHT, duration=0.2)
 			self.waitAndRender(1)
 
-		self.press("A")
+		self.press(Button.BUTTON_A)
 		self.waitAndRender(2)
-		self.press("w")
+		self.press(Button.L_UP)
 		self.waitAndRender(0.5)
-		self.press("A")
+		self.press(Button.BUTTON_A)
 
 		self.awaitFlash(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 

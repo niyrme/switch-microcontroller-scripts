@@ -1,4 +1,5 @@
 /.idea
+/logs
 __pycache__
 config.json
 shinyGrind.json

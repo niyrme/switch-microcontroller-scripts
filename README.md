@@ -13,14 +13,14 @@ A repo containing my scripts running on the base of [this](https://github.com/as
 # How to use
 1. Rename `sample.config.json` to `config.json`
 2. Update the settings in `config.json` (if so desired)
-3. Run any of the packages as python modules: `python3 -m gen4`
-	- add `-h` or `--help` as an argument to get a bit more info about each script (example: `python3 -m gen4 --help <script>`)
+3. Run any of the packages as python modules: `python3 -m pokemon.bdsp`
+	- add `-h` or `--help` as an argument to get a bit more info about each script (example: `python3 -m pokemon.bdsp --help <script>`)
 
 
 # Script list
 
 ## Pokémon Brilliant Diamon/Shining Pearl
-Run as `python3 -m gen4 <script>` (or add `-h`/`--help` flag for more info)
+Run as `python3 -m pokemon.bdsp <script>` (or add `-h`/`--help` flag for more info)
 - `arceus` for Arceus
   - Not yet implemented
 - `cresselia` for Cresselia
@@ -33,14 +33,27 @@ Run as `python3 -m gen4 <script>` (or add `-h`/`--help` flag for more info)
          - Map tile position: Row 2 Col 1
          - Bag tile position: Row 1 Col 3
 - `darkrai` for Darkrai
-   - Requirements: Stand in front of Darkrai
+   - Requirements:
+     - Stand in front of Darkrai
+- `giratina` for Giratina
+  - Requirements:
+    - Stand in front of Giratina
+- `heatran` for Heatran
+  - Requirements:
+    - Stand in front of Heatran
 - `legendary` for Dialga/Palkia
-   - Requirements: Stand in front of Legendary
+   - Requirements:
+     - Stand in front of Legendary
 - `pixie` for Uxie and Azelf
    - not Mesprit because it roams around the map
-   - Requirements: Stand in front of Pixie
+   - Requirements:
+     - Stand in front of Pixie
 - `random` for random encounters in orthogonal directions
+- `regigigas` for Regigigas
+  - Not yet implemented
 - `shaymin` for Shaymin
-   - Requirements: Stand in front of Shaymin
+   - Requirements:
+     - Stand in front of Shaymin
 - `starter` for a starter
-   - Requirements: Stand in front of Transition into Lake Verity
+   - Requirements:
+     - Stand in front of Transition into Lake Verity

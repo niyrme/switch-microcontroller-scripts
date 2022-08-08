@@ -1,18 +1,19 @@
 import argparse
 import contextlib
 import json
+import logging
 import os
-import sys
 import time
 import uuid
 from abc import abstractmethod
 from collections.abc import Callable
 from collections.abc import Generator
-from datetime import datetime
+from enum import Enum
 from enum import IntEnum
 from typing import Any
 from typing import NamedTuple
 from typing import TypeVar
+from typing import Union
 
 import cv2
 import numpy
@@ -29,6 +30,9 @@ class Pos(NamedTuple):
 	x: int
 	y: int
 
+	def __str__(self) -> str:
+		return f"({self.x}, {self.y})"
+
 
 class Pixel(NamedTuple):
 	r: int
@@ -39,9 +43,11 @@ class Pixel(NamedTuple):
 	def tpl(self) -> tuple[int, int, int]:
 		return (self.r, self.g, self.b)
 
+	def __str__(self) -> str:
+		return f"({self.r}, {self.g}, {self.b})"
+
 
 class ReturnCode(IntEnum):
-	CRASH = -1
 	OK = 0
 	SHINY = 1
 
@@ -69,6 +75,40 @@ class Config(NamedTuple):
 		))
 
 
+class Button(Enum):
+	EMPTY = "0"
+	BUTTON_A = "A"
+	BUTTON_B = "B"
+	BUTTON_X = "X"
+	BUTTON_Y = "Y"
+	BUTTON_HOME = "H"
+	BUTTON_PLUS = "+"
+	BUTTON_MINUS = "-"
+	BUTTON_L = "L"
+	BUTTON_R = "R"
+	BUTTON_ZL = "l"
+	BUTTON_ZR = "r"
+	L_UP_LEFT = "q"
+	L_UP = "w"
+	L_UP_RIGHT = "e"
+	L_LEFT = "a"
+	L_RIGHT = "d"
+	L_DOWN_LEFT = "z"
+	L_DOWN_RIGHT = "c"
+	L_DOWN = "s"
+	R_UP_LEFT = "y"
+	R_UP = "u"
+	R_UP_RIGHT = "i"
+	R_LEFT = "h"
+	R_RIGHT = "k"
+	R_DOWN_LEFT = "n"
+	R_DOWN_RIGHT = "m"
+	R_DOWN = "j"
+
+	def encode(self) -> bytes:
+		return str(self.value).encode()
+
+
 PAD = " " * 32
 
 COLOR_BLACK = Pixel(0, 0, 0)
@@ -76,193 +116,11 @@ COLOR_WHITE = Pixel(255, 255, 255)
 
 LOADING_SCREEN_POS = Pos(705, 15)
 
-CFG_NOTIFY: bool = False
-CFG_RENDER: bool = True
-CFG_SEND_ALL_ENCOUNTERS: bool = False
-CFG_CATCH_CRASH: bool = False
-
-MAINRUNNER_FUNCTION = Callable[[serial.Serial, cv2.VideoCapture, int], tuple[int, ReturnCode, numpy.ndarray]]
-
-
-def sendTelegram(**kwargs) -> None:
-	if CFG_NOTIFY is True:
-		try:
-			telegram_send.send(**kwargs)
-		except telegram.error.NetworkError as e:
-			print(f"telegram_send: connection failed: {e}", file=sys.stderr)
-
-
-def sendMsg(msg: str) -> None:
-	sendTelegram(messages=(msg,))
-
-
-def sendImg(imgPath: str) -> None:
-	with open(imgPath, "rb") as img:
-		sendTelegram(images=(img,))
-
-
-def sendScreenshot(image: numpy.ndarray) -> None:
-	scrName = f"tempScreenshot{uuid.uuid4()}.png"
-	cv2.imwrite(scrName, image)
-	sendImg(scrName)
-	os.remove(scrName)
-
-
-def alarm(ser: serial.Serial, vid: cv2.VideoCapture) -> None:
-	for _ in range(3):
-		ser.write(b"!")
-		waitAndRender(vid, 1)
-		ser.write(b".")
-		waitAndRender(vid, 0.4)
-
-
-def nearPixel(pixel: numpy.ndarray, expected: Pixel, distance: int = 75) -> bool:
-	return sum(
-		(c2 - c1) ** 2
-		for c1, c2 in zip(pixel, expected.tpl)
-	) < distance
-
-
-def press(ser: serial.Serial, vid: cv2.VideoCapture, s: str, duration: float = .05) -> None:
-	print(f"{datetime.now().strftime('%H:%M:%S')} '{s}' for {duration} {PAD}\r", end="")
-
-	ser.write(s.encode())
-	if duration >= 0.5:
-		tEnd = time.time() + duration
-		while time.time() < tEnd:
-			getframe(vid)
-	else:
-		time.sleep(duration)
-	ser.write(b"0")
-	time.sleep(.075)
-
-
-def getframe(vid: cv2.VideoCapture) -> numpy.ndarray:
-	_, frame = vid.read()
-
-	if CFG_RENDER is True:
-		cv2.imshow("Pokermans", frame)
-
-	if cv2.waitKey(1) & 0xFF == ord("q"):
-		raise RunStop
-	else:
-		return frame
-
-
-def waitAndRender(vid: cv2.VideoCapture, t: float) -> None:
-	end = time.time() + t
-	while time.time() < end:
-		getframe(vid)
-
-
-def awaitPixel(
-	ser: serial.Serial,
-	vid: cv2.VideoCapture,
-	*,
-	pos: Pos,
-	pixel: Pixel,
-	timeout: float = 90,
-) -> bool:
-	end = time.time() + timeout
-	frame = getframe(vid)
-	while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
-		frame = getframe(vid)
-		if time.time() > end:
-			return False
-	return True
-
-
-def awaitNotPixel(
-	ser: serial.Serial,
-	vid: cv2.VideoCapture,
-	*,
-	pos: Pos,
-	pixel: Pixel,
-	timeout: float = 90,
-) -> bool:
-	end = time.time() + timeout
-	frame = getframe(vid)
-	while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
-		frame = getframe(vid)
-		if time.time() > end:
-			return False
-	return True
-
-
-def whilePixel(
-	ser: serial.Serial,
-	vid: cv2.VideoCapture,
-	pos: Pos,
-	pixel: Pixel,
-	delay: float,
-	fn: Callable[[], None],
-) -> None:
-	frame = getframe(vid)
-	tEnd = time.time() + delay
-	while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
-		if time.time() > tEnd:
-			fn()
-			tEnd = time.time() + delay
-		frame = getframe(vid)
-
-
-def whileNotPixel(
-	ser: serial.Serial,
-	vid: cv2.VideoCapture,
-	pos: Pos,
-	pixel: Pixel,
-	delay: float,
-	fn: Callable[[], None],
-) -> None:
-	frame = getframe(vid)
-	tEnd = time.time() + delay
-	while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
-		if time.time() > tEnd:
-			fn()
-			tEnd = time.time() + delay
-		frame = getframe(vid)
-
 
 @contextlib.contextmanager
 def shh(ser: serial.Serial) -> Generator[None, None, None]:
 	try: yield
 	finally: ser.write(b'.')
-
-
-def resetGame(ser: serial.Serial, vid: cv2.VideoCapture) -> None:
-	press(ser, vid, "H")
-	waitAndRender(vid, 1)
-	press(ser, vid, "X")
-	waitAndRender(vid, 1)
-	press(ser, vid, "A")
-	waitAndRender(vid, 3)
-	press(ser, vid, "A")
-	waitAndRender(vid, 1)
-	press(ser, vid, "A")
-
-
-def checkShinyDialog(ser: serial.Serial, vid: cv2.VideoCapture, dialogPos: Pos, dialogColor: Pixel, delay: float = 2.0) -> tuple[ReturnCode, numpy.ndarray]:
-	awaitPixel(ser, vid, pos=dialogPos, pixel=dialogColor)
-	print(f"dialog start{PAD}\r", end="")
-
-	crashed = False
-	crashed |= not awaitNotPixel(ser, vid, pos=dialogPos, pixel=dialogColor)
-	print(f"dialog end{PAD}\r", end="")
-	t0 = time.time()
-
-	encounterFrame = getframe(vid)
-	crashed |= not awaitPixel(ser, vid, pos=dialogPos, pixel=dialogColor)
-	t1 = time.time()
-
-	diff = t1 - t0
-	print(f"dialog delay: {diff:.3f}s{PAD}")
-
-	waitAndRender(vid, 0.5)
-
-	if diff >= 89 or crashed is True:
-		raise RunCrash
-
-	return (ReturnCode.SHINY if 10 > diff > delay else ReturnCode.OK, encounterFrame)
 
 
 def loadJson(filePath: str) -> dict:
@@ -289,11 +147,10 @@ def jsonGetDefault(data: dict[K, T], key: K, default: T) -> tuple[dict[K, T], T]
 
 class Script:
 	storeEncounters: bool = True
-	scriptName: str
 
 	@staticmethod
-	def parser() -> argparse.ArgumentParser:
-		return argparse.ArgumentParser(add_help=False)
+	def parser(*args, **kwargs) -> argparse.ArgumentParser:
+		return argparse.ArgumentParser(*args, **kwargs, add_help=False)
 
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
 		self._ser = ser
@@ -301,8 +158,11 @@ class Script:
 
 		self.config: Config = config
 
-		self.windowName: str = kwargs.get("windowName", "Game")
+		self.windowName: str = kwargs.pop("windowName", "Game")
 		self.extraStats: list[tuple[str, Any]] = list()
+
+	def __call__(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+		return self.main(e)
 
 	@abstractmethod
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
@@ -319,8 +179,8 @@ class Script:
 		else:
 			return frame
 
-	def press(self, s: str, duration: float = 0.05, render: bool = False) -> None:
-		print(f"{datetime.now().strftime('%H:%M:%S')} '{s}' for {duration} {PAD}\r", end="")
+	def press(self, s: Union[str, Button], duration: float = 0.05, render: bool = False) -> None:
+		logging.debug(f"press '{s}' for {duration}")
 
 		self._ser.write(s.encode())
 		if render is True or duration >= 0.5:
@@ -334,6 +194,7 @@ class Script:
 		time.sleep(0.075)
 
 	def waitAndRender(self, duration: float) -> None:
+		logging.debug(f"wait for {duration}")
 		tEnd = time.time() + duration
 		while time.time() < tEnd:
 			self.getframe()
@@ -356,9 +217,13 @@ class Script:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
 		while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
-			frame = self.getframe()
 			if time.time() > tEnd:
+				logging.debug(
+					f"did not find color ({pixel}) at ({pos});"
+					f"color in last frame: {frame[pos.y][pos.x]}",
+				)
 				return False
+			frame = self.getframe()
 		else:
 			return True
 
@@ -366,9 +231,10 @@ class Script:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
 		while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
-			frame = self.getframe()
 			if time.time() > tEnd:
+				logging.debug(f"did not find not color ({pixel}) at ({pos})")
 				return False
+			frame = self.getframe()
 		else:
 			return True
 
@@ -382,9 +248,13 @@ class Script:
 		tEnd = time.time() + timeout
 		frame = self.getframe()
 		while not self.nearColor(frame[pos.y][pos.x], pixel, distance):
-			frame = self.getframe()
 			if time.time() > tEnd:
+				logging.debug(
+					f"did not find near color ({pixel}) at ({pos}) (distance: {distance});"
+					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
+				)
 				return False
+			frame = self.getframe()
 		else:
 			return True
 
@@ -392,9 +262,13 @@ class Script:
 		tEnd = time.time() + timeout
 		frame = self.getframe()
 		while self.nearColor(frame[pos.y][pos.x], pixel, distance):
-			frame = self.getframe()
 			if time.time() > tEnd:
+				logging.debug(
+					f"did not find not near color ({pixel}) at ({pos}) (distance: {distance});"
+					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
+				)
 				return False
+			frame = self.getframe()
 		else:
 			return True
 
@@ -408,6 +282,10 @@ class Script:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
+				logging.debug(
+					f"did not find color ({pixel}) at ({pos});"
+					f"color in last frame: {frame[pos.y][pos.x]}",
+				)
 				return False
 			frame = self.getframe()
 
@@ -423,6 +301,7 @@ class Script:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
+				logging.debug(f"did not find not color ({pixel}) at ({pos})")
 				return False
 			frame = self.getframe()
 
@@ -438,6 +317,10 @@ class Script:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
+				logging.debug(
+					f"did not find near color ({pixel}) at ({pos}) (distance: {distance});"
+					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
+				)
 				return False
 			frame = self.getframe()
 
@@ -453,32 +336,38 @@ class Script:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
+				logging.debug(
+					f"did not find not near color ({pixel}) at ({pos}) (distance: {distance});"
+					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
+				)
 				return False
 			frame = self.getframe()
 
 		return True
 
 	def resetGame(self) -> None:
-		self.press("H")
+		logging.debug("reset game")
+		self.press(Button.BUTTON_HOME)
+		self.waitAndRender(2)
+		self.press(Button.BUTTON_X)
 		self.waitAndRender(1)
-		self.press("X")
-		self.waitAndRender(1)
-		self.press("A")
+		self.press(Button.BUTTON_A)
 		self.waitAndRender(3)
-		self.press("A")
+		self.press(Button.BUTTON_A)
 		self.waitAndRender(1)
-		self.press("A")
+		self.press(Button.BUTTON_A)
 		self.waitAndRender(1)
-		self.press("A")
+		self.press(Button.BUTTON_A)
 
 	def _sendTelegram(self, **kwargs) -> None:
 		if self.config.notifyShiny is True:
 			try:
 				telegram_send.send(**kwargs)
 			except telegram.error.NetworkError as e:
-				print(f"telegram_send: connection failed: {e}", file=sys.stderr)
+				logging.warning(f"telegram_send: connection failed: {e}")
 
 	def sendMsg(self, msg: str) -> None:
+		logging.debug(f"send telegram message: '{msg}'")
 		self._sendTelegram(messages=(msg,))
 
 	def sendImg(self, imgPath: str) -> None:
