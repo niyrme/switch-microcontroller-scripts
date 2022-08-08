@@ -22,7 +22,8 @@ A repo containing my scripts running on the base of [this](https://github.com/as
 ## Pokémon Brilliant Diamon/Shining Pearl
 Run as `python3 -m pokemon.bdsp <script>` (or add `-h`/`--help` flag for more info)
 - `arceus` for Arceus
-  - Not yet implemented
+  - Requirements:
+    - Stand at the last step before the platform
 - `cresselia` for Cresselia
    - Requirements:
       - Stand in front of cresselia
