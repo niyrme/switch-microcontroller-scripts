@@ -1,9 +1,11 @@
+import argparse
 import difflib
 import logging
 import pathlib
 import time
 from abc import abstractmethod
 from itertools import cycle
+from typing import Optional
 
 import cv2
 import numpy
@@ -41,8 +43,21 @@ class BDSPScript(Script):
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
 		super().__init__(ser, vid, config, **kwargs)
 
-		with open(langsPath / (config.lang + ".txt")) as f:
+		tempLang: Optional[str] = kwargs["tempLang"]
+
+		lang = tempLang if tempLang is not None else config.lang
+
+		logging.debug(f"language used for text recognition: {lang}")
+
+		with open(langsPath / (lang + ".txt")) as f:
 			self.names = f.readlines()
+
+	@staticmethod
+	def parser(*args, **kwargs) -> argparse.ArgumentParser:
+		langs = (lang.name[:-4] for lang in langsPath.iterdir())
+		p = super().parser(*args, **kwargs)
+		p.add_argument("-l", "--lang", action="store", choices=langs, default=None, dest="tempLang", help="override lang for this run only (instead of using the one from config)")
+		return p
 
 	def checkShinyDialog(self, delay: float = 2) -> tuple[ReturnCode, numpy.ndarray]:
 		logging.debug("waiting for dialog")
