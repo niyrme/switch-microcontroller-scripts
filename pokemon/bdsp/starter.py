@@ -8,12 +8,12 @@ from lib import Button
 from lib import COLOR_WHITE
 from lib import PAD
 from lib import ReturnCode
+from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
-from lib.pokemon.bdsp import Gen4Script
 from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 
-class Script(Gen4Script):
+class Script(BDSPScript):
 	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
 		p = super(Script, Script).parser(*args, **kwargs, description="reset starter")
@@ -33,15 +33,9 @@ class Script(Gen4Script):
 		self.press(Button.L_UP, 0.5)
 		self.waitAndRender(1)
 
-		for _ in range(12):
-			self.waitAndRender(2)
-			self.press(Button.BUTTON_A)
-		for _ in range(4):
-			self.waitAndRender(5.5)
-			self.press(Button.BUTTON_A)
-		for _ in range(3):
-			self.waitAndRender(2)
-			self.press(Button.BUTTON_A)
+		self.pressN(Button.BUTTON_A, 12, 2, render=True)
+		self.pressN(Button.BUTTON_A, 4, 5.5, render=True)
+		self.pressN(Button.BUTTON_A, 3, 2, render=True)
 
 		print(f"move to bag{PAD}\r", end="")
 		for v in (7, 2, 2, 5, 2, 5):

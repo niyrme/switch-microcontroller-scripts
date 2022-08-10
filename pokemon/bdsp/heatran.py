@@ -6,21 +6,19 @@ from lib import Button
 from lib import COLOR_BLACK
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
-from lib import PAD
 from lib import ReturnCode
 from lib import RunCrash
-from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
-from lib.pokemon.bdsp import Gen4Script
+from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import SHORT_DIALOG_POS
 
 
-class Script(Gen4Script):
+class Script(BDSPScript):
 	def awaitInGame(self) -> None:
 		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
-		print("startup screen", PAD)
+		logging.debug("startup screen")
 
 		self.whilePixel(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
-		print("after startup", PAD)
+		logging.debug("after startup")
 
 		self.waitAndRender(1)
 
@@ -34,11 +32,11 @@ class Script(Gen4Script):
 		# loading screen to game
 		if not self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK):
 			raise RunCrash
-		print("loading screen", PAD)
+		logging.debug("loading screen")
 		if not self.awaitNotPixel(SHORT_DIALOG_POS, COLOR_BLACK):
 			raise RunCrash
 
-		print("in game", PAD)
+		logging.debug("in game")
 		self.waitAndRender(1)
 
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
@@ -59,5 +57,5 @@ class Script(Gen4Script):
 
 		logging.debug("waiting for dialog")
 
-		rc, encounterFrame = self.checkShinyDialog(ENCOUNTER_DIALOG_POS, COLOR_WHITE, 1.5)
+		rc, encounterFrame = self.checkShinyDialog(1.5)
 		return (e + 1, rc, encounterFrame)

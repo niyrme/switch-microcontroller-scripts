@@ -180,7 +180,7 @@ class Script:
 			return frame
 
 	def press(self, s: Union[str, Button], duration: float = 0.05, render: bool = False) -> None:
-		logging.debug(f"press '{s}' for {duration}")
+		logging.debug(f"press '{s}' for {duration}s")
 
 		self._ser.write(s.encode())
 		if render is True or duration >= 0.5:
@@ -192,6 +192,16 @@ class Script:
 
 		self._ser.write(b"0")
 		time.sleep(0.075)
+
+	def pressN(self, s: Union[str, Button], n: int, delay: float, duration: float = 0.05, render: bool = False) -> None:
+		logging.debug(f"press '{s}' {n} times for {duration}s (delay: {delay}s)")
+
+		for _ in range(n):
+			self.press(s, duration, render)
+			if render is True:
+				self.waitAndRender(delay)
+			else:
+				time.sleep(delay)
 
 	def waitAndRender(self, duration: float) -> None:
 		logging.debug(f"wait for {duration}")

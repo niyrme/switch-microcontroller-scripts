@@ -6,12 +6,11 @@ from lib import Button
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib import ReturnCode
-from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
-from lib.pokemon.bdsp import Gen4Script
+from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 
-class Script(Gen4Script):
+class Script(BDSPScript):
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(3)
@@ -21,7 +20,7 @@ class Script(Gen4Script):
 		self.awaitPixel(LOADING_SCREEN_POS, COLOR_WHITE)
 		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
 
-		rc, encounterFrame = self.checkShinyDialog(ENCOUNTER_DIALOG_POS, COLOR_WHITE, 1.5)
+		rc, encounterFrame = self.checkShinyDialog(1.5)
 		if rc == ReturnCode.SHINY:
 			return (e + 1, ReturnCode.SHINY, encounterFrame)
 

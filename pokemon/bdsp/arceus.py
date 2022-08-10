@@ -4,14 +4,12 @@ import numpy
 
 from lib import Button
 from lib import COLOR_BLACK
-from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib import ReturnCode
-from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
-from lib.pokemon.bdsp import Gen4Script
+from lib.pokemon.bdsp import BDSPScript
 
 
-class Script(Gen4Script):
+class Script(BDSPScript):
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()
@@ -25,6 +23,6 @@ class Script(Gen4Script):
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(10)
 
-		rc, encounterFrame = self.checkShinyDialog(ENCOUNTER_DIALOG_POS, COLOR_WHITE, 1.5)
+		rc, encounterFrame = self.checkShinyDialog(1)
 
 		return (e + 1, rc, encounterFrame)

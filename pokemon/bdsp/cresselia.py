@@ -5,11 +5,11 @@ from lib import COLOR_BLACK
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib import ReturnCode
-from lib.pokemon.bdsp import Gen4Script
+from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import SHORT_DIALOG_POS
 
 
-class Script(Gen4Script):
+class Script(BDSPScript):
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()

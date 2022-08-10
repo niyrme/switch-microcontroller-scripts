@@ -25,22 +25,22 @@ ROAMER_MAP_POS = Pos(340, 280)
 ROAMER_MAP_COLOR = Pixel(32, 60, 28)
 
 
-class Gen4Script(Script):
+class BDSPScript(Script):
 	@abstractmethod
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		raise NotImplementedError
 
-	def checkShinyDialog(self, dialogPos: Pos, dialogColor: Pixel, delay: float = 2) -> tuple[ReturnCode, numpy.ndarray]:
+	def checkShinyDialog(self, delay: float = 2) -> tuple[ReturnCode, numpy.ndarray]:
 		logging.debug("waiting for dialog")
-		self.awaitPixel(dialogPos, dialogColor)
+		self.awaitPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 		print(f"dialog start{PAD}\r", end="")
 
-		crashed = not self.awaitNotPixel(dialogPos, dialogColor)
+		crashed = not self.awaitNotPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 		print(f"dialog end{PAD}\r", end="")
 		t0 = time.time()
 
 		encounterFrame = self.getframe()
-		crashed |= not self.awaitPixel(dialogPos, dialogColor)
+		crashed |= not self.awaitPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 
 		diff = time.time() - t0
 		logging.log(LOG_DELAY, f"dialog delay: {diff:.3f}")
@@ -51,7 +51,7 @@ class Gen4Script(Script):
 		if diff >= 89 or crashed is True:
 			raise RunCrash
 		else:
-			return (ReturnCode.SHINY if 10 > diff > delay else ReturnCode.OK, encounterFrame)
+			return (ReturnCode.SHINY if delay + 10 > diff > delay else ReturnCode.OK, encounterFrame)
 
 	def awaitInGame(self) -> None:
 		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
@@ -110,7 +110,7 @@ class Gen4Script(Script):
 
 		self.press(Button.BUTTON_R)
 		self.waitAndRender(0.2)
-		print("run towards start location", PAD)
+		logging.debug("run towards start location")
 		self.press(Button.L_LEFT, 0.8)
 		self.press(Button.L_DOWN, 6.5)
 
@@ -124,12 +124,12 @@ class Gen4Script(Script):
 			self.waitAndRender(1)
 
 			if encounter is True:
-				print(f"found after reloading area {areaReloads} times", PAD)
-				print("roamer in area", PAD)
+				logging.debug(f"found after reloading area {areaReloads} times")
+				logging.debug("roamer in area")
 				self.press(Button.L_UP, 0.3)
 				self.waitAndRender(0.1)
 
-				print("open backpack", PAD)
+				logging.debug("open backpack")
 				self.press(Button.BUTTON_X)
 				self.waitAndRender(0.5)
 
@@ -147,7 +147,7 @@ class Gen4Script(Script):
 					self.press(Button.L_RIGHT)
 					self.waitAndRender(0.1)
 
-				print("use repel", PAD)
+				logging.debug("use repel")
 				self.press(Button.BUTTON_A)
 				self.waitAndRender(1)
 				self.press(Button.BUTTON_A)
@@ -160,7 +160,7 @@ class Gen4Script(Script):
 				self._ser.write(b"a")
 
 				_directions = cycle(("a", "d"))
-				print("go for encounter", PAD)
+				logging.debug("go for encounter")
 				tEnd = time.time() + 2
 				frame = self.getframe()
 				while not numpy.array_equal(
@@ -172,7 +172,7 @@ class Gen4Script(Script):
 						tEnd = time.time() + 0.5
 					if numpy.array_equal(frame[SHORT_DIALOG_POS.y][SHORT_DIALOG_POS.x], COLOR_WHITE):
 						self._ser.write(b"0")
-						print("re-apply repel", PAD)
+						logging.debug("re-apply repel")
 						# repel used up
 						for d in (2, 1, 1):
 							self.waitAndRender(d)
@@ -184,7 +184,7 @@ class Gen4Script(Script):
 				print("encounter!", PAD)
 
 				self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
-				return self.checkShinyDialog(ENCOUNTER_DIALOG_POS, COLOR_WHITE, 1.5)
+				return self.checkShinyDialog(1.5)
 			else:
 				logging.debug("reload area")
 				areaReloads += 1
@@ -201,12 +201,12 @@ class Gen4Script(Script):
 			self.press(Button.BUTTON_B)
 
 			if self.awaitPixel(OWN_POKEMON_POS, COLOR_BLACK, 10):
-				print("fade out", PAD)
+				logging.debug("fade out", PAD)
 				break
 			else:
 				self.waitAndRender(15)
 				logging.debug("failed to run or wrong option selected (due to lag, or some other thing)")
 
 		self.awaitNotPixel(OWN_POKEMON_POS, COLOR_BLACK)
-		print("return to game")
+		logging.debug("return to game")
 		self.waitAndRender(1)

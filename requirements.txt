@@ -1,4 +1,5 @@
 numpy
-opencv-python
+opencv-contrib-python
 pyserial
+pytesseract
 telegram-send

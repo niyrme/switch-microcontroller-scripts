@@ -173,16 +173,18 @@ def main() -> int:
 
 	logging.root.setLevel(min(args[k] for k in ("debug", "shinyDelay")))
 
-	logging.debug(f"setting log-level to {logging.root.level}")
+	logging.debug(f"setting log-level to {logging.getLevelName(logging.root.level)}")
 	logging.debug(f"scripts: {', '.join(scriptNames)}")
 
 	scriptName = args["script"]
-	try: mod = importlib.import_module(f"pokemon.bdsp.{scriptName}")
-	except ModuleNotFoundError:
-		logging.critical(f"failed to import module '{scriptName}'")
+	try:
+		mod = importlib.import_module(f"pokemon.bdsp.{scriptName}")
+	except ModuleNotFoundError as e:
+		logging.critical(e)
 		return 1
 
-	try: script: Type[Script] = mod.Script
+	try:
+		script: Type[Script] = mod.Script
 	except AttributeError:
 		logging.critical(f"failed to get script from '{scriptName}'")
 		return 1
