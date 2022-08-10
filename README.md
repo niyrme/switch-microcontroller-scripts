@@ -59,3 +59,6 @@ Run as `python3 -m pokemon.bdsp <script>` (or add `-h`/`--help` flag for more in
 - `starter` for a starter
    - Requirements:
      - Stand in front of Transition into Lake Verity
+
+# Contribute
+Additions to `lib/pokemon/langs` is welcome. But please try to keep special symbols out of the names (like ♀/♂ from Nidoran)
