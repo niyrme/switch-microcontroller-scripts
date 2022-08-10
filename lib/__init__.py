@@ -54,6 +54,7 @@ class ReturnCode(IntEnum):
 
 class Config(NamedTuple):
 	serialPort: str
+	lang: str
 	notifyShiny: bool = False
 	renderCapture: bool = True
 	sendAllEncounters: bool = False
@@ -67,6 +68,7 @@ class Config(NamedTuple):
 		# works ¯\_(ツ)_/¯
 		return "\n".join((
 			f"   serial port: {self.serialPort}",
+			f"   lang: {self.lang}",
 			f"   {getMark(self.notifyShiny)} notify shiny encounters",
 			f"   {getMark(self.renderCapture)} render captured video",
 			f"   {getMark(self.sendAllEncounters)} send all encounters",

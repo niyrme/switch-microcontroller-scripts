@@ -22,18 +22,20 @@ from lib import jsonGetDefault
 from lib import ReturnCode
 from lib import Script
 from lib.pokemon import LOG_DELAY
+from lib.pokemon.bdsp import BDSPScript
 
 
 def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script]) -> int:
 	configJSON: dict[str, Union[str, bool]] = lib.loadJson(str(args.pop("configFile")))
 
 	config = Config(
-		str(configJSON.pop("serialPort", "COM0")),
-		bool(configJSON.pop("notifyShiny", False)),
-		bool(configJSON.pop("renderCapture", True)),
-		bool(configJSON.pop("sendAllEncounters", False)),
-		bool(configJSON.pop("catchCrashes", False)),
-		bool(configJSON.pop("showLastRunDuration", False)),
+		serialPort=str(configJSON.pop("serialPort", "COM0")),
+		lang=str(configJSON.pop("lang", "en")),
+		notifyShiny=bool(configJSON.pop("notifyShiny", False)),
+		renderCapture=bool(configJSON.pop("renderCapture", True)),
+		sendAllEncounters=bool(configJSON.pop("sendAllEncounters", False)),
+		catchCrashes=bool(configJSON.pop("catchCrashes", False)),
+		showLastRunDuration=bool(configJSON.pop("showLastRunDuration", False)),
 	)
 
 	logging.info(f"start encounters: {encountersStart}")
@@ -107,8 +109,15 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script])
 
 				logging.debug(f"returncode: {code.name}")
 				if code == ReturnCode.SHINY:
-					logging.info("found a SHINY!!")
-					script.sendMsg("Found a SHINY!!")
+					if isinstance(script, BDSPScript):
+						script.waitAndRender(15)
+						name = script.getName()
+						if name != "":
+							logging.info(f"found a shiny {name}!")
+							script.sendMsg(f"Found a shiny {name}")
+					else:
+						logging.info("found a SHINY!!")
+						script.sendMsg("Found a SHINY!!")
 
 					script.sendScreenshot(encounterFrame)
 

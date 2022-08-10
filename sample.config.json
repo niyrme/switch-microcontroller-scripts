@@ -1,6 +1,8 @@
 {
 	"serialPort": "COM0",
 
+	"lang": "en",
+
 	"notifyShiny": false,
 	"renderCapture": true,
 	"sendAllEncounters": false,

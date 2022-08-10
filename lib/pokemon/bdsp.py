@@ -1,14 +1,20 @@
+import difflib
 import logging
+import pathlib
 import time
 from abc import abstractmethod
 from itertools import cycle
 
+import cv2
 import numpy
+import pytesseract
+import serial
 
 from . import LOG_DELAY
 from lib import Button
 from lib import COLOR_BLACK
 from lib import COLOR_WHITE
+from lib import Config
 from lib import LOADING_SCREEN_POS
 from lib import PAD
 from lib import Pixel
@@ -24,11 +30,19 @@ OWN_POKEMON_POS = Pos(5, 425)
 ROAMER_MAP_POS = Pos(340, 280)
 ROAMER_MAP_COLOR = Pixel(32, 60, 28)
 
+langsPath = pathlib.Path(__file__).parent / "langs"
+
 
 class BDSPScript(Script):
 	@abstractmethod
 	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
 		raise NotImplementedError
+
+	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
+		super().__init__(ser, vid, config, **kwargs)
+
+		with open(langsPath / (config.lang + ".txt")) as f:
+			self.names = f.readlines()
 
 	def checkShinyDialog(self, delay: float = 2) -> tuple[ReturnCode, numpy.ndarray]:
 		logging.debug("waiting for dialog")
@@ -210,3 +224,13 @@ class BDSPScript(Script):
 		self.awaitNotPixel(OWN_POKEMON_POS, COLOR_BLACK)
 		logging.debug("return to game")
 		self.waitAndRender(1)
+
+	def getName(self) -> str:
+		frame = cv2.cvtColor(self.getframe(), cv2.COLOR_BGR2GRAY)
+		crop = frame[30:54, 533:641]
+		text = pytesseract.image_to_string(crop)
+
+		try:
+			return difflib.get_close_matches(str(text).strip(), self.names, n=1)[0]
+		except IndexError:
+			return ""
