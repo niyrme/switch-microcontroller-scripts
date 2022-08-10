@@ -7,7 +7,7 @@ import lib
 from lib import Button
 from lib import COLOR_WHITE
 from lib import PAD
-from lib import ReturnCode
+from lib.pokemon import ExecShiny
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
 from lib.pokemon.bdsp import OWN_POKEMON_POS
@@ -16,7 +16,7 @@ from lib.pokemon.bdsp import OWN_POKEMON_POS
 class Script(BDSPScript):
 	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
-		p = super(Script, Script).parser(*args, **kwargs, description="reset starter")
+		p = super(BDSPScript, BDSPScript).parser(*args, **kwargs, description="reset starter")
 		p.add_argument("starter", type=int, choices={1, 2, 3}, help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
 		return p
 
@@ -26,7 +26,7 @@ class Script(BDSPScript):
 		self.starter = int(kwargs["starter"])
 		self.extraStats.append(("Resetting for", ("Turtwig", "Chimchar", "Piplup")[self.starter - 1]))
 
-	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()
 
@@ -70,7 +70,9 @@ class Script(BDSPScript):
 
 		print(f"dialog delay: {diff:.3f}s", PAD)
 
-		if diff >= 89 or crash is True:
-			raise lib.RunCrash
-
-		return (e + 1, ReturnCode.SHINY if 15 > diff > 2 else ReturnCode.OK, encounterFrame)
+		if 15 > diff > 2:
+			raise ExecShiny(e + 1, encounterFrame)
+		elif diff >= 89 or crash is True:
+			raise lib.ExecLock
+		else:
+			return (e + 1, encounterFrame)

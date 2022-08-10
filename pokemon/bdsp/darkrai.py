@@ -5,13 +5,12 @@ import numpy
 from lib import Button
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
-from lib import ReturnCode
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import SHORT_DIALOG_POS
 
 
 class Script(BDSPScript):
-	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()
 
@@ -28,5 +27,4 @@ class Script(BDSPScript):
 
 		logging.debug("waiting for dialog")
 
-		rc, encounterFrame = self.checkShinyDialog(1.5)
-		return (e + 1, rc, encounterFrame)
+		return (e + 1, self.checkShinyDialog(e, 1.5))

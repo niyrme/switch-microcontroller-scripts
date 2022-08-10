@@ -9,9 +9,9 @@ from abc import abstractmethod
 from collections.abc import Callable
 from collections.abc import Generator
 from enum import Enum
-from enum import IntEnum
 from typing import Any
 from typing import NamedTuple
+from typing import Optional
 from typing import TypeVar
 from typing import Union
 
@@ -22,8 +22,29 @@ import telegram
 import telegram_send
 
 
-class RunStop(Exception): ...
-class RunCrash(Exception): ...
+class ExecCrash(Exception):
+	"""
+	WIP
+
+	Used when game crashes ("The software was closed because an error occured." screen)
+	"""
+
+
+class ExecLock(Exception):
+	"""
+	Used when the game "locks"
+
+	(timeout on pixel detection, etc.)
+	"""
+
+	def __init__(self, ctx: Optional[str] = None, *args: object) -> None:
+		super().__init__(*args)
+
+		self.ctx = ctx
+
+
+class ExecStop(Exception):
+	"""Terminate script"""
 
 
 class Pos(NamedTuple):
@@ -45,11 +66,6 @@ class Pixel(NamedTuple):
 
 	def __str__(self) -> str:
 		return f"({self.r}, {self.g}, {self.b})"
-
-
-class ReturnCode(IntEnum):
-	OK = 0
-	SHINY = 1
 
 
 class Config(NamedTuple):
@@ -163,11 +179,11 @@ class Script:
 		self.windowName: str = kwargs.pop("windowName", "Game")
 		self.extraStats: list[tuple[str, Any]] = list()
 
-	def __call__(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+	def __call__(self, e: int) -> Any:
 		return self.main(e)
 
 	@abstractmethod
-	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+	def main(self, e: int) -> Any:
 		raise NotImplementedError
 
 	def getframe(self) -> numpy.ndarray:
@@ -177,7 +193,7 @@ class Script:
 			cv2.imshow(self.windowName, frame)
 
 		if cv2.waitKey(1) & 0xFF == ord("q"):
-			raise RunStop
+			raise ExecStop
 		else:
 			return frame
 
@@ -225,66 +241,52 @@ class Script:
 		)
 		return d < distance
 
-	def awaitPixel(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> bool:
+	def awaitPixel(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
 		while not numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
 			if time.time() > tEnd:
-				logging.debug(
+				raise ExecLock(
 					f"did not find color ({pixel}) at ({pos});"
 					f"color in last frame: {frame[pos.y][pos.x]}",
 				)
-				return False
 			frame = self.getframe()
-		else:
-			return True
 
-	def awaitNotPixel(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> bool:
+	def awaitNotPixel(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
 		while numpy.array_equal(frame[pos.y][pos.x], pixel.tpl):
 			if time.time() > tEnd:
-				logging.debug(f"did not find not color ({pixel}) at ({pos})")
-				return False
+				raise ExecLock(f"did not find not color ({pixel}) at ({pos})")
 			frame = self.getframe()
-		else:
-			return True
 
-	def awaitFlash(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> bool:
-		if not self.awaitPixel(pos, pixel, timeout):
-			return False
-		else:
-			return self.awaitNotPixel(pos, pixel, timeout)
+	def awaitFlash(self, pos: Pos, pixel: Pixel, timeout: float = 90) -> None:
+		self.awaitPixel(pos, pixel, timeout)
+		self.awaitNotPixel(pos, pixel, timeout)
 
-	def awaitNearPixel(self, pos: Pos, pixel: Pixel, distance: int = 30, timeout: float = 90) -> bool:
+	def awaitNearPixel(self, pos: Pos, pixel: Pixel, distance: int = 30, timeout: float = 90) -> None:
 		tEnd = time.time() + timeout
 		frame = self.getframe()
 		while not self.nearColor(frame[pos.y][pos.x], pixel, distance):
 			if time.time() > tEnd:
-				logging.debug(
+				raise ExecLock(
 					f"did not find near color ({pixel}) at ({pos}) (distance: {distance});"
 					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
 				)
-				return False
 			frame = self.getframe()
-		else:
-			return True
 
-	def awaitNotNearPixel(self, pos: Pos, pixel: Pixel, distance: int = 30, timeout: float = 90) -> bool:
+	def awaitNotNearPixel(self, pos: Pos, pixel: Pixel, distance: int = 30, timeout: float = 90) -> None:
 		tEnd = time.time() + timeout
 		frame = self.getframe()
 		while self.nearColor(frame[pos.y][pos.x], pixel, distance):
 			if time.time() > tEnd:
-				logging.debug(
+				raise ExecLock(
 					f"did not find not near color ({pixel}) at ({pos}) (distance: {distance});"
 					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
 				)
-				return False
 			frame = self.getframe()
-		else:
-			return True
 
-	def whilePixel(self, pos: Pos, pixel: Pixel, delay: float, fn: Callable[[], None], timeout: float = 90) -> bool:
+	def whilePixel(self, pos: Pos, pixel: Pixel, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
@@ -294,16 +296,13 @@ class Script:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
-				logging.debug(
+				raise ExecLock(
 					f"did not find color ({pixel}) at ({pos});"
 					f"color in last frame: {frame[pos.y][pos.x]}",
 				)
-				return False
 			frame = self.getframe()
 
-		return True
-
-	def whileNotPixel(self, pos: Pos, pixel: Pixel, delay: float, fn: Callable[[], None], timeout: float = 90) -> bool:
+	def whileNotPixel(self, pos: Pos, pixel: Pixel, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
@@ -313,13 +312,10 @@ class Script:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
-				logging.debug(f"did not find not color ({pixel}) at ({pos})")
-				return False
+				raise ExecLock(f"did not find not color ({pixel}) at ({pos})")
 			frame = self.getframe()
 
-		return True
-
-	def whileNearPixel(self, pos: Pos, pixel: Pixel, distance: int, delay: float, fn: Callable[[], None], timeout: float = 90) -> bool:
+	def whileNearPixel(self, pos: Pos, pixel: Pixel, distance: int, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
@@ -329,16 +325,13 @@ class Script:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
-				logging.debug(
+				raise ExecLock(
 					f"did not find near color ({pixel}) at ({pos}) (distance: {distance});"
-					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
+					f" color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
 				)
-				return False
 			frame = self.getframe()
 
-		return True
-
-	def whileNotNearPixel(self, pos: Pos, pixel: Pixel, distance: int, delay: float, fn: Callable[[], None], timeout: float = 90) -> bool:
+	def whileNotNearPixel(self, pos: Pos, pixel: Pixel, distance: int, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
@@ -348,14 +341,11 @@ class Script:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
-				logging.debug(
-					f"did not find not near color ({pixel}) at ({pos}) (distance: {distance});"
-					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
+				raise ExecLock(
+					f"did not find not near color ({pixel}) as ({pos}) (distance: {distance});"
+					f" color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], pixel.tpl))})",
 				)
-				return False
 			frame = self.getframe()
-
-		return True
 
 	def resetGame(self) -> None:
 		logging.debug("reset game")

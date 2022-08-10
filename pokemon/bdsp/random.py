@@ -10,7 +10,7 @@ from lib import Button
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib import PAD
-from lib import ReturnCode
+from lib.pokemon import ExecShiny
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import OWN_POKEMON_POS
 
@@ -18,7 +18,7 @@ from lib.pokemon.bdsp import OWN_POKEMON_POS
 class Script(BDSPScript):
 	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
-		p = super(Script, Script).parser(*args, **kwargs, description="reset random encounters")
+		p = super(__class__, __class__).parser(*args, **kwargs, description="reset random encounters")
 		p.add_argument("direction", type=str, choices={"h", "v"}, help="direction to run in {(h)orizontal, (v)ertical} direction")
 		p.add_argument("delay", type=float, help="delay betweeen changing direction")
 		return p
@@ -40,7 +40,7 @@ class Script(BDSPScript):
 		logging.debug(f"directions: {self.directions}")
 		logging.debug(f"delay: {self.delay}")
 
-	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		tEnd = time.time()
 		frame = self.getframe()
 
@@ -57,13 +57,15 @@ class Script(BDSPScript):
 
 		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
 
-		rc, encounterFrame = self.checkShinyDialog(1.5)
-		if rc == ReturnCode.SHINY:
-			return (0, ReturnCode.SHINY, encounterFrame)
+		try:
+			encounterFrame = self.checkShinyDialog(e, 1.5)
+		except ExecShiny as shiny:
+			shiny.encounter = 0
+			raise
 
 		self.whileNotPixel(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press(Button.BUTTON_B))
 		self.waitAndRender(1)
 
 		self.runFromEncounter()
 
-		return (e + 1, ReturnCode.OK, encounterFrame)
+		return (e + 1, encounterFrame)

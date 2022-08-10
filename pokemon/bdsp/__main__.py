@@ -2,7 +2,6 @@ import argparse
 import importlib
 import logging
 import os
-import sys
 import time
 from datetime import datetime
 from datetime import timedelta
@@ -19,13 +18,15 @@ import lib
 from lib import Button
 from lib import Config
 from lib import jsonGetDefault
-from lib import ReturnCode
-from lib import Script
+from lib.pokemon import ExecShiny
 from lib.pokemon import LOG_DELAY
 from lib.pokemon.bdsp import BDSPScript
 
 
-def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script]) -> int:
+TPokemonScript = Type[BDSPScript]
+
+
+def _main(args: dict[str, Any], encountersStart: int, scriptClass: TPokemonScript) -> int:
 	configJSON: dict[str, Union[str, bool]] = lib.loadJson(str(args.pop("configFile")))
 
 	config = Config(
@@ -86,8 +87,24 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script])
 
 				runStart = datetime.now()
 				try:
-					encounters, code, encounterFrame = script(encounters)
-				except lib.RunCrash:
+					encounters, encounterFrame = script(encounters)
+					runDuration = datetime.now() - runStart
+				except lib.ExecLock as e:
+					ctx = f" (context: {e.ctx})" if e.ctx is not None else ""
+					msg = f"script locked up{ctx}"
+					logging.warning(msg)
+					script.sendMsg(msg)
+
+					logging.warning("check switch status and press ctrl+c to continue")
+
+					try:
+						while True:
+							script.waitAndRender(3)
+					except KeyboardInterrupt:
+						pass
+					crashes += 1
+					continue
+				except lib.ExecCrash:
 					logging.warning("script crashed, reset switch to home screen and press ctrl+c to continue")
 					if script.config.catchCrashes is True:
 						print("\a")
@@ -97,56 +114,45 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: Type[Script])
 								script.waitAndRender(5)
 						except KeyboardInterrupt:
 							pass
-					for _ in range(3):
-						script.press(Button.BUTTON_A)
-						script.waitAndRender(1.5)
+					script.waitAndRender(1)
+					script.pressN(Button.BUTTON_A, 5, 1.5)
 					crashes += 1
 					continue
-				finally:
-					currentEncounters += 1
-
-				runDuration = datetime.now() - runStart
-
-				logging.debug(f"returncode: {code.name}")
-				if code == ReturnCode.SHINY:
+				except ExecShiny as shiny:
+					encounters = shiny.encounter
 					if isinstance(script, BDSPScript):
 						script.waitAndRender(15)
 						name = script.getName()
-						if name != "":
-							logging.info(f"found a shiny {name}!")
-							script.sendMsg(f"Found a shiny {name}")
+						if name is not None:
+							name = f"SHINY {name}"
+						else:
+							name = "SHINY"
+
+						msg = f"found a {name}!"
 					else:
-						logging.info("found a SHINY!!")
-						script.sendMsg("Found a SHINY!!")
+						msg = "found a SHINY!"
 
-					script.sendScreenshot(encounterFrame)
+					logging.info(msg)
+					script.sendMsg(msg)
 
-					ser.write(b"0")
-					print("\a")
+					script.sendScreenshot(shiny.encounterFrame)
 
 					try:
 						while True:
-							if time.time() % 5 == 0:
-								print("\a")
-							script.getframe()
+							script.waitAndRender(3)
 					except KeyboardInterrupt:
-						pass
-
-					while True:
-						cmd = input("continue? (y/n) ").strip().lower()
-						if cmd in ("y", "yes"):
-							break
-						elif cmd in ("n", "no"):
-							raise lib.RunStop
+						cmd = input("continue? (y/n)")
+						if cmd.lower() in ("y", "yes"):
+							continue
 						else:
-							print(f"invalid command: {cmd}", file=sys.stderr)
-				elif code == ReturnCode.OK:
+							raise lib.ExecStop
+				else:
 					if script.config.sendAllEncounters is True:
 						logging.debug("send screenshot")
 						script.sendScreenshot(encounterFrame)
-				else:
-					logging.error(f"got invalid return code: {code.name} ({code})")
-		except (KeyboardInterrupt, EOFError, lib.RunStop):
+				finally:
+					currentEncounters += 1
+		except (KeyboardInterrupt, EOFError, lib.ExecStop):
 			logging.info("script stopped")
 		except Exception as e:
 			s = f"Program crashed: {e}"
@@ -193,7 +199,7 @@ def main() -> int:
 		return 1
 
 	try:
-		script: Type[Script] = mod.Script
+		script: TPokemonScript = mod.Script
 	except AttributeError:
 		logging.critical(f"failed to get script from '{scriptName}'")
 		return 1

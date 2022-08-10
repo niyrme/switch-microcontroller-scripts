@@ -5,13 +5,12 @@ import numpy
 from lib import Button
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
-from lib import ReturnCode
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 
 class Script(BDSPScript):
-	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(3)
 		self.press(Button.BUTTON_A)
@@ -20,9 +19,7 @@ class Script(BDSPScript):
 		self.awaitPixel(LOADING_SCREEN_POS, COLOR_WHITE)
 		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
 
-		rc, encounterFrame = self.checkShinyDialog(1.5)
-		if rc == ReturnCode.SHINY:
-			return (e + 1, ReturnCode.SHINY, encounterFrame)
+		encounterFrame = self.checkShinyDialog(e, 1.5)
 
 		self.whileNotPixel(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press(Button.BUTTON_B))
 		self.waitAndRender(1)
@@ -35,4 +32,4 @@ class Script(BDSPScript):
 		logging.debug("reload area")
 		self.press(Button.L_DOWN, 3.5)
 		self.press(Button.L_UP, 3.8)
-		return (e + 1, ReturnCode.OK, encounterFrame)
+		return (e + 1, encounterFrame)

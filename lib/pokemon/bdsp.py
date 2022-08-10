@@ -12,17 +12,18 @@ import numpy
 import pytesseract
 import serial
 
+from . import ExecShiny
 from . import LOG_DELAY
 from lib import Button
 from lib import COLOR_BLACK
 from lib import COLOR_WHITE
 from lib import Config
+from lib import ExecCrash
+from lib import ExecLock
 from lib import LOADING_SCREEN_POS
 from lib import PAD
 from lib import Pixel
 from lib import Pos
-from lib import ReturnCode
-from lib import RunCrash
 from lib import Script
 
 
@@ -37,7 +38,7 @@ langsPath = pathlib.Path(__file__).parent / "langs"
 
 class BDSPScript(Script):
 	@abstractmethod
-	def main(self, e: int) -> tuple[int, ReturnCode, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		raise NotImplementedError
 
 	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
@@ -55,21 +56,23 @@ class BDSPScript(Script):
 	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
 		langs = (lang.name[:-4] for lang in langsPath.iterdir())
-		p = super().parser(*args, **kwargs)
+
+		# IDK what I'm doing here but it works ¯\_(ツ)_/¯
+		p = super(__class__, __class__).parser(*args, **kwargs)
 		p.add_argument("-l", "--lang", action="store", choices=langs, default=None, dest="tempLang", help="override lang for this run only (instead of using the one from config)")
 		return p
 
-	def checkShinyDialog(self, delay: float = 2) -> tuple[ReturnCode, numpy.ndarray]:
+	def checkShinyDialog(self, e: int, delay: float = 2) -> numpy.ndarray:
 		logging.debug("waiting for dialog")
 		self.awaitPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 		print(f"dialog start{PAD}\r", end="")
 
-		crashed = not self.awaitNotPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
+		self.awaitNotPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 		print(f"dialog end{PAD}\r", end="")
 		t0 = time.time()
 
 		encounterFrame = self.getframe()
-		crashed |= not self.awaitPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
+		self.awaitPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 
 		diff = time.time() - t0
 		logging.log(LOG_DELAY, f"dialog delay: {diff:.3f}")
@@ -77,10 +80,12 @@ class BDSPScript(Script):
 
 		self.waitAndRender(0.5)
 
-		if diff >= 89 or crashed is True:
-			raise RunCrash
-		else:
-			return (ReturnCode.SHINY if delay + 10 > diff > delay else ReturnCode.OK, encounterFrame)
+		if delay + 10 > diff > delay:
+			raise ExecShiny(e + 1, encounterFrame)
+		elif diff >= 89:
+			raise ExecLock
+
+		return encounterFrame
 
 	def awaitInGame(self) -> None:
 		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
@@ -93,23 +98,20 @@ class BDSPScript(Script):
 
 		frame = self.getframe()
 		if numpy.array_equal(frame[LOADING_SCREEN_POS.y][LOADING_SCREEN_POS.x], (41, 41, 41)):
-			raise RunCrash
+			raise ExecCrash
 
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(3)
 
 		# loading screen to game
-		crashed = not self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
 		logging.debug("loading screen")
-		crashed |= not self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_BLACK)
-
-		if crashed is True:
-			raise RunCrash
+		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_BLACK)
 
 		logging.debug("in game")
 		self.waitAndRender(1)
 
-	def resetRoamer(self) -> tuple[ReturnCode, numpy.ndarray]:
+	def resetRoamer(self, e: int) -> numpy.ndarray:
 		logging.debug("reset roamer")
 		print("travel to Jubilife City", PAD)
 		self.waitAndRender(0.5)
@@ -213,7 +215,7 @@ class BDSPScript(Script):
 				print("encounter!", PAD)
 
 				self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
-				return self.checkShinyDialog(1.5)
+				return self.checkShinyDialog(e, 1.5)
 			else:
 				logging.debug("reload area")
 				areaReloads += 1
@@ -240,7 +242,7 @@ class BDSPScript(Script):
 		logging.debug("return to game")
 		self.waitAndRender(1)
 
-	def getName(self) -> str:
+	def getName(self) -> Optional[str]:
 		frame = cv2.cvtColor(self.getframe(), cv2.COLOR_BGR2GRAY)
 		crop = frame[30:54, 533:641]
 		text = pytesseract.image_to_string(crop)
@@ -248,4 +250,4 @@ class BDSPScript(Script):
 		try:
 			return difflib.get_close_matches(str(text).strip(), self.names, n=1)[0]
 		except IndexError:
-			return ""
+			return None
