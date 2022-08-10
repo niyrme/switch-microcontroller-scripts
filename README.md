@@ -51,7 +51,8 @@ Run as `python3 -m pokemon.bdsp <script>` (or add `-h`/`--help` flag for more in
      - Stand in front of Pixie
 - `random` for random encounters in orthogonal directions
 - `regigigas` for Regigigas
-  - Not yet implemented
+  - Reqiremens:
+    - Stand in front of Regigigas
 - `shaymin` for Shaymin
    - Requirements:
      - Stand in front of Shaymin
