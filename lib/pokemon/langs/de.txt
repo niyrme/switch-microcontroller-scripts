@@ -89,7 +89,7 @@ Sleima
 Sleimok
 Muschas
 Austos
-Nebulak,
+Nebulak
 Alpollo
 Gengar
 Onix
@@ -180,7 +180,7 @@ Voltilamm
 Waaty
 Ampharos
 Blubella
-Marill,
+Marill
 Azumarill
 Mogelbaum
 Quaxo
@@ -265,7 +265,7 @@ Geradaks
 Waumpel
 Schaloko
 Papinella
-Panekon,
+Panekon
 Pudox
 Loturzel
 Lombrero
@@ -351,7 +351,7 @@ Milotic
 Formeo
 Kecleon
 Shuppet
-Banette,
+Banette
 Zwirrlicht
 Zwirrklop
 Tropius
@@ -435,7 +435,7 @@ Skunkapuh
 Skuntank
 Bronzel
 Bronzong
-Mobai,
+Mobai
 Pantimimi
 Wonneira
 Plaudagei
@@ -517,7 +517,7 @@ Sodachita
 Somniam
 Somnivora
 Dusselgurr
-Navitaub,
+Navitaub
 Fasasnob
 Elezeba
 Zebritz
@@ -597,7 +597,7 @@ Voltula
 Kastadur
 Tentantel
 Klikk
-Kliklak,
+Kliklak
 Klikdiklak
 Zapplardin
 Zapplalek
@@ -681,7 +681,7 @@ Duokles
 Durengard
 Parfi
 Parfinesse
-Flauschling,
+Flauschling
 Sabbaione
 Iscalar
 Calamanero
@@ -766,7 +766,7 @@ Kommandutan
 Quartermak
 Reißlaus
 Tectass
-Sankabuh,
+Sankabuh
 Colossand
 Gufa
 Typ:Null
@@ -851,7 +851,7 @@ Thermopod
 Infernopod
 Klopptopus
 Kaocto
-Fatalitee,
+Fatalitee
 Mortipot
 Brimova
 Brimano

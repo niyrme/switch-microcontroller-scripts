@@ -83,7 +83,7 @@ Magneton
 Farfetch’d
 Doduo
 Dodrio
-Seel,
+Seel
 Dewgong
 Grimer
 Muk
@@ -172,8 +172,8 @@ Lanturn
 Pichu
 Cleffa
 Igglybuff
-Togepi,
-Togetic,
+Togepi
+Togetic
 Natu
 Xatu
 Mareep
@@ -260,8 +260,8 @@ Marshtomp
 Swampert
 Poochyena
 Mightyena
-Zigzagoon,
-Linoone,
+Zigzagoon
+Linoone
 Wurmple
 Silcoon
 Beautifly
@@ -350,8 +350,8 @@ Feebas
 Milotic
 Castform
 Kecleon
-Shuppet,
-Banette,
+Shuppet
+Banette
 Duskull
 Dusclops
 Tropius
@@ -439,7 +439,7 @@ Bonsly
 Mime Jr.
 Happiny
 Chatot
-Spiritomb,
+Spiritomb
 Gible
 Gabite
 Garchomp
@@ -526,7 +526,7 @@ Boldore
 Gigalith
 Woobat
 Swoobat
-Drilbur,
+Drilbur
 Excadrill
 Audino
 Timburr
@@ -609,8 +609,8 @@ Lampent
 Chandelure
 Axew
 Fraxure
-Haxorus,
-Cubchoo,
+Haxorus
+Cubchoo
 Beartic
 Cryogonal
 Shelmet
@@ -694,8 +694,8 @@ Clawitzer
 Helioptile
 Heliolisk
 Tyrunt
-Tyrantrum,
-Amaura,
+Tyrantrum
+Amaura
 Aurorus
 Sylveon
 Hawlucha
@@ -779,7 +779,7 @@ Mimikyu
 Bruxish
 Drampa
 Dhelmise
-Jangmo-o,
+Jangmo-o
 Hakamo-o
 Kommo-o
 Tapu Koko
@@ -861,7 +861,7 @@ Morgrem
 Grimmsnarl
 Obstagoon
 Perrserker
-Cursola,
+Cursola
 Sirfetch'd
 Mr. Rime
 Runerigus
