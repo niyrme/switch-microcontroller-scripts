@@ -3,3 +3,9 @@ ignore =
 	W191 # I like tabs more
 	E501 # Screens are big now
 	E701
+exclude =
+	venv
+	__pycache__
+	.pytest_cache
+	.git
+	logs
