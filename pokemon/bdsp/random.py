@@ -10,7 +10,6 @@ from lib import Button
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib import PAD
-from lib.pokemon import ExecShiny
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import OWN_POKEMON_POS
 
@@ -57,11 +56,7 @@ class Script(BDSPScript):
 
 		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
 
-		try:
-			encounterFrame = self.checkShinyDialog(e, 1.5)
-		except ExecShiny as shiny:
-			shiny.encounter = 0
-			raise
+		encounterFrame = self.checkShinyDialog(0, 1.5)
 
 		self.whileNotPixel(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press(Button.BUTTON_B))
 		self.waitAndRender(1)

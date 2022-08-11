@@ -81,7 +81,7 @@ class BDSPScript(Script):
 		self.waitAndRender(0.5)
 
 		if delay + 10 > diff > delay:
-			raise ExecShiny(e + 1, encounterFrame)
+			raise ExecShiny(e, encounterFrame)
 		elif diff >= 89:
 			raise ExecLock
 
