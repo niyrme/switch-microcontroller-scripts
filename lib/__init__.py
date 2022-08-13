@@ -223,7 +223,14 @@ class Script:
 		raise NotImplementedError
 
 	def getframe(self) -> numpy.ndarray:
-		return self._cap.getFrame()
+		frame = self._cap.getFrame()
+		if self.config.renderCapture is True:
+			cv2.imshow(self.windowName, frame)
+
+		if cv2.waitKey(1) & 0xFF == ord("q"):
+			raise ExecStop
+		else:
+			return frame
 
 	def press(self, s: Union[str, Button], duration: float = 0.05, render: bool = False) -> None:
 		logging.debug(f"press '{s}' for {duration}s")
