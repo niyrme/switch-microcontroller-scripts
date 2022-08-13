@@ -16,6 +16,7 @@ import telegram_send
 
 import lib
 from lib import Button
+from lib import Capture
 from lib import Config
 from lib import jsonGetDefault
 from lib.pokemon import ExecShiny
@@ -43,10 +44,11 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: TPokemonScrip
 
 	with serial.Serial(config.serialPort, 9600) as ser, lib.shh(ser):
 		logging.info("setting up cv2. This may take a while...")
-		vid: cv2.VideoCapture = cv2.VideoCapture(0)
-		vid.set(cv2.CAP_PROP_FPS, 30)
-		vid.set(cv2.CAP_PROP_FRAME_WIDTH, 768)
-		vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+		cap = Capture(
+			width=768,
+			height=480,
+			fps=30,
+		)
 
 		ser.write(b"0")
 		time.sleep(0.1)
@@ -55,7 +57,7 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: TPokemonScrip
 		encounters = encountersStart
 		crashes = 0
 
-		script = scriptClass(ser, vid, config, **args, windowName=f"Pokermans: {str(args['script']).capitalize()}")
+		script = scriptClass(ser, cap, config, **args, windowName=f"Pokermans: {str(args['script']).capitalize()}")
 		script.sendMsg("Script started")
 		logging.info("script started")
 		script.waitAndRender(1)
@@ -160,7 +162,7 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: TPokemonScrip
 			logging.error(s)
 		finally:
 			ser.write(b"0")
-			vid.release()
+			del script
 			cv2.destroyAllWindows()
 			return encounters
 

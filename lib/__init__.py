@@ -163,6 +163,42 @@ def jsonGetDefault(data: dict[K, T], key: K, default: T) -> tuple[dict[K, T], T]
 		return (data | {key: default}, default)
 
 
+class Capture:
+	def __init__(self, *, width: int = 768, height: int = 480, fps: int = 30):
+		self._vidWidth = width
+		self._vidHeight = height
+
+		vid = cv2.VideoCapture(0)
+		vid.set(cv2.CAP_PROP_FPS, fps)
+		vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+		vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+
+		self.vid: cv2.VideoCapture = vid
+
+	@property
+	def vidWidth(self) -> int:
+		return self._vidWidth
+
+	@property
+	def vidHeight(self) -> int:
+		return self._vidHeight
+
+	def getFrame(self) -> numpy.ndarray:
+		_, frame = self.vid.read()
+
+		if cv2.waitKey(1) & 0xFF == ord("q"):
+			raise SystemExit(0)
+
+		return frame
+
+	def getFrameRGB(self) -> numpy.ndarray:
+		return cv2.cvtColor(self.getFrame(), cv2.COLOR_BGR2RGB)
+
+	def __del__(self):
+		if self.vid and self.vid.isOpened():
+			self.vid.release()
+
+
 class Script:
 	storeEncounters: bool = True
 
@@ -170,9 +206,9 @@ class Script:
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
 		return argparse.ArgumentParser(*args, **kwargs, add_help=False)
 
-	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
+	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:
 		self._ser = ser
-		self._vid = vid
+		self._cap = cap
 
 		self.config: Config = config
 
@@ -187,15 +223,7 @@ class Script:
 		raise NotImplementedError
 
 	def getframe(self) -> numpy.ndarray:
-		_, frame = self._vid.read()
-
-		if self.config.renderCapture is True:
-			cv2.imshow(self.windowName, frame)
-
-		if cv2.waitKey(1) & 0xFF == ord("q"):
-			raise ExecStop
-		else:
-			return frame
+		return self._cap.getFrame()
 
 	def press(self, s: Union[str, Button], duration: float = 0.05, render: bool = False) -> None:
 		logging.debug(f"press '{s}' for {duration}s")

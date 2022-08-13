@@ -15,6 +15,7 @@ import serial
 from . import ExecShiny
 from . import LOG_DELAY
 from lib import Button
+from lib import Capture
 from lib import COLOR_BLACK
 from lib import COLOR_WHITE
 from lib import Config
@@ -41,8 +42,8 @@ class BDSPScript(Script):
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		raise NotImplementedError
 
-	def __init__(self, ser: serial.Serial, vid: cv2.VideoCapture, config: Config, **kwargs) -> None:
-		super().__init__(ser, vid, config, **kwargs)
+	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:
+		super().__init__(ser, cap, config, **kwargs)
 
 		tempLang: Optional[str] = kwargs["tempLang"]
 
