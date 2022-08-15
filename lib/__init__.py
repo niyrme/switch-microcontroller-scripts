@@ -37,7 +37,7 @@ class ExecLock(Exception):
 	(timeout on pixel detection, etc.)
 	"""
 
-	def __init__(self, ctx: Optional[str] = None, *args: object) -> None:
+	def __init__(self, ctx: Optional[str] = None, *args) -> None:
 		super().__init__(*args)
 
 		self.ctx = ctx
@@ -45,6 +45,11 @@ class ExecLock(Exception):
 
 class ExecStop(Exception):
 	"""Terminate script"""
+
+	def __init__(self, encounters: Optional[int] = None, *args):
+		super().__init__(*args)
+
+		self.encounters = encounters
 
 
 class Pos(NamedTuple):
@@ -149,7 +154,7 @@ def loadJson(filePath: str) -> dict:
 
 def dumpJson(filePath: str, data: dict) -> None:
 	with open(filePath, "w") as f:
-		json.dump(data, f, indent="\t")
+		json.dump(data, f, indent="\t", sort_keys=True)
 
 
 T = TypeVar("T")

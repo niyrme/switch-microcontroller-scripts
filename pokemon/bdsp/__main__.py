@@ -40,6 +40,8 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: TPokemonScrip
 		showLastRunDuration=bool(configJSON.pop("showLastRunDuration", False)),
 	)
 
+	sendNth: int = args.pop("sendNth", 0)
+
 	logging.info(f"start encounters: {encountersStart}")
 
 	with serial.Serial(config.serialPort, 9600) as ser, lib.shh(ser):
@@ -149,6 +151,10 @@ def _main(args: dict[str, Any], encountersStart: int, scriptClass: TPokemonScrip
 						else:
 							raise lib.ExecStop
 				else:
+					if sendNth >= 2 and currentEncounters % sendNth == 0:
+						logging.debug("send screenshot")
+						script.sendScreenshot(encounterFrame)
+
 					if script.config.sendAllEncounters is True:
 						logging.debug("send screenshot")
 						script.sendScreenshot(encounterFrame)
@@ -175,6 +181,7 @@ def main() -> int:
 	parser.add_argument("-s", "--shiny-dialog-delay", action="store_const", const=LOG_DELAY, default=logging.INFO, dest="shinyDelay", help="log dialog delay to file")
 	parser.add_argument("-c", "--config-file", type=str, dest="configFile", default="config.json", help="configuration file (defualt: %(default)s)")
 	parser.add_argument("-e", "--encounter-file", type=str, dest="encounterFile", default="shinyGrind.json", help="file in which encounters are stored (defualt: %(default)s)")
+	parser.add_argument("-n", "--send-nth-encounter", type=int, dest="sendNth", action="store", default=0, help="send every Nth encounter (must be 2 or higher; otherwise ignored)")
 
 	scriptNames = tuple(
 		s[:-3] for s in filter(
@@ -192,6 +199,17 @@ def main() -> int:
 
 	logging.debug(f"setting log-level to {logging.getLevelName(logging.root.level)}")
 	logging.debug(f"scripts: {', '.join(scriptNames)}")
+
+	Nth: int = args["sendNth"]
+
+	if Nth >= 2:
+		m = {
+			1: "st",
+			2: "nd",
+			3: "rd",
+		}.get(int(str(Nth)[-1]), "th")
+
+		logging.info(f"sending screenshot of every {Nth}{m} encounter")
 
 	scriptName = args["script"]
 	try:
