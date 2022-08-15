@@ -183,11 +183,6 @@ def run(args: dict[str, Any], modules: dict[str, Type[Script]]) -> int:
 		logging.critical(f"failed to get Script from {modulePath}")
 		return 1
 
-	if args.pop("getRequirements") is True:
-		print("Requirements")
-		print("\n".join(f"  - {req}" for req in script.requirements()), end="\n\n")
-		return 0
-
 	encounterFile = args.pop("encounterFile")
 
 	jsn = lib.loadJson(encounterFile)

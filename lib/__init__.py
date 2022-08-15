@@ -8,6 +8,7 @@ import uuid
 from abc import abstractmethod
 from collections.abc import Callable
 from collections.abc import Generator
+from collections.abc import Sequence
 from enum import Enum
 from typing import Any
 from typing import NamedTuple
@@ -204,13 +205,25 @@ class Capture:
 			self.vid.release()
 
 
+class RequirementsAction(argparse.Action):
+	def __init__(self, option_strings: Sequence[str], requirements: Sequence[str], **kwargs) -> None:
+		self.requirements = requirements
+
+		super().__init__(option_strings, **kwargs, nargs=0)
+
+	def __call__(self, parser: argparse.ArgumentParser, *args, **kwargs) -> None:
+		print("Requirements")
+		print("\n".join(f"  - {req}" for req in self.requirements))
+
+		parser.exit()
+
+
 class Script:
 	storeEncounters: bool = True
 
 	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
 		parser = argparse.ArgumentParser(*args, **kwargs, add_help=False)
-		parser.add_argument("-r", "--requirements", action="store_true", dest="getRequirements", help="print out the requirements for a script")
 		return parser
 
 	@staticmethod

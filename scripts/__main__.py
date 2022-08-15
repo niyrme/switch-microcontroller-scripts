@@ -6,6 +6,7 @@ import pathlib
 from datetime import datetime
 from typing import Type
 
+from lib import RequirementsAction
 from lib import Script
 from lib.pokemon import LOG_DELAY
 
@@ -71,8 +72,15 @@ def main() -> int:
 					except AttributeError:
 						logging.warning(f"Failed to get Script from {_sMod}")
 					else:
-						_scriptParsers.add_parser(_scriptName, parents=[_script.parser()])
 						modules[_sMod] = _script
+						sp = _scriptParsers.add_parser(_scriptName, parents=[_script.parser()])
+						# HACK couldn't find a way to jam it into `Script` and still work with subclasses
+						sp.add_argument(
+							"-r", "--requirements",
+							action=RequirementsAction,
+							help="print out the requirements for a script",
+							requirements=_script.requirements,
+						)
 
 	args = vars(parser.parse_args())
 
@@ -110,6 +118,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+	# TODO get this outta here
 	now = datetime.now()
 	os.makedirs("logs", exist_ok=True)
 	logging.basicConfig(
