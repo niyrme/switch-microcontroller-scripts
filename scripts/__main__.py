@@ -11,6 +11,8 @@ from typing import Type
 
 import cv2
 import serial
+import telegram
+import telegram_send
 
 import lib
 from lib import Button
@@ -22,7 +24,7 @@ from lib.pokemon import LOG_DELAY
 from lib.pokemon.bdsp import BDSPScript
 
 
-def _main(scriptClass: Type[Script], args: dict[str, Any], scriptArgs: dict[str, Any], encountersStart: int) -> int:
+def run(scriptClass: Type[Script], args: dict[str, Any], encountersStart: int) -> int:
 	configJSON: dict = lib.loadJson(args.pop("configFile"))
 
 	cfg = Config(
@@ -54,7 +56,7 @@ def _main(scriptClass: Type[Script], args: dict[str, Any], scriptArgs: dict[str,
 		encounters = encountersStart
 		crashes = 0
 
-		script = scriptClass(ser, cap, cfg, **scriptArgs, windowName=f"Pokermans: {str(args['script']).capitalize()}")
+		script = scriptClass(ser, cap, cfg, **args, windowName=f"Pokermans: {str(args['script']).capitalize()}")
 		script.sendMsg("Script started")
 		logging.info("script started")
 		script.waitAndRender(1)
@@ -187,42 +189,55 @@ def main() -> int:
 		if not _game.is_dir(): continue
 
 		mods: list[tuple[str, tuple[str, ...]]] = []
-		for module in _game.iterdir():
-			if not module.is_dir(): continue
+		for _module in _game.iterdir():
+			if not _module.is_dir(): continue
 
 			scripts: tuple[str, ...] = tuple(
 				map(
 					lambda s: s.name[:-3],
 					filter(
 						lambda s: s.is_file() and not s.name.startswith("_") and s.name.endswith(".py"),
-						module.iterdir(),
+						_module.iterdir(),
 					),
 				),
 			)
 
 			if len(scripts) != 0:
-				mods.append((module.name, scripts))
+				mods.append((_module.name, scripts))
 
 		if len(mods) != 0:
 			games.append((_game.name, tuple(mods)))
 
+	modules: dict[str, Type[Script]] = {}
+
+	# TODO maybe move up to only iterate once?
 	if len(games) != 0:
-		gamesParsers = parser.add_subparsers(dest="game")
+		_gamesParsers = parser.add_subparsers(dest="game")
 
-		for gameName, gameMods in games:
-			assert len(gameMods) != 0
-			gameParser = gamesParsers.add_parser(gameName)
+		for _gameName, _gameMods in games:
+			assert len(_gameMods) != 0
+			_gameParser = _gamesParsers.add_parser(_gameName)
+			_modParsers = _gameParser.add_subparsers(dest="mod")
 
-			gameParserS = gameParser.add_subparsers(dest="mod")
+			for _modName, _scripts in _gameMods:
+				assert len(_scripts) != 0
 
-			for modName, scripts in gameMods:
-				assert len(scripts) != 0
+				_modParser = _modParsers.add_parser(_modName)
+				_scriptParsers = _modParser.add_subparsers(dest="script")
 
-				modParser = gameParserS.add_parser(modName)
-				modParser.add_argument("script", action="store", type=str, choices=scripts)
+				for _scriptName in _scripts:
+					_sMod = f"scripts.{_gameName}.{_modName}.{_scriptName}"
+					try:
+						_script: Type[Script] = importlib.import_module(_sMod).Script
+					except ModuleNotFoundError:
+						logging.warning(f"Failed to import {_sMod}")
+					except AttributeError:
+						logging.warning(f"Failed to get Script from {_sMod}")
+					else:
+						_scriptParsers.add_parser(_scriptName, parents=[_script.parser()])
+						modules[_sMod] = _script
 
-	_args, rest = parser.parse_known_args()
-	args: dict[str, Any] = vars(_args)
+	args = vars(parser.parse_args())
 
 	logging.root.setLevel(min(args[k] for k in ("debug", "shinyDelay")))
 
@@ -239,63 +254,49 @@ def main() -> int:
 
 		logging.info(f"sending screenshot of every {Nth}{m} encounter")
 
-	logging.debug(f"Game:   {args['game']}")
-	logging.debug(f"Mod:    {args['mod']}")
-	logging.debug(f"Script: {args['script']}")
-
-	gameName: str = args["game"]
-	modName: str = args["mod"]
+	gameName: str = args.pop("game")
+	modName: str = args.pop("mod")
 	scriptName: str = args["script"]
 
-	moduleName = f"{gameName}.{modName}.{scriptName}"
+	logging.debug(f"Game:   {gameName}")
+	logging.debug(f"Mod:    {modName}")
+	logging.debug(f"Script: {scriptName}")
+
+	moduleName = f"scripts.{gameName}.{modName}.{scriptName}"
 
 	try:
-		impModule = importlib.import_module(moduleName)
-	except ModuleNotFoundError as e:
-		logging.critical(e)
+		script = modules[moduleName]
+	except KeyError:
+		logging.critical(f"failed to get Script from {moduleName}")
 		return 1
 
-	try:
-		script: Type[Script] = impModule.Script
-	except AttributeError:
-		logging.critical(f"failed to import script from {moduleName}")
-		return 1
-
-	jsn = lib.loadJson(args["encounterFile"])
-
-	try:
-		gameJson = jsn[gameName]
-	except KeyError:
-		jsn[gameName] = {}
-		gameJson = {}
-
-	try:
-		modJson = gameJson[modName]
-	except KeyError:
-		gameJson[modName] = {}
-		modJson = {}
-
-	try:
-		encounters = modJson[scriptName]
-	except KeyError:
-		encounters = 0
-
-	scriptArgs = vars(script.parser().parse_args(rest))
-
-	if scriptArgs["getRequirements"] is True:
+	if args.pop("getRequirements") is True:
 		print("Requirements")
-		for req in script.requirements():
-			print(f"  - {req}")
-		print()
+		print("\n".join(f"  - {req}" for req in script.requirements()), end="\n\n")
 		return 0
 
+	encounterFile = args.pop("encounterFile")
+
+	jsn = lib.loadJson(encounterFile)
+
+	gameJson = jsn.get(gameName, dict())
+	modJson = gameJson.get(modName, dict())
+	encounters = modJson.get(scriptName, 0)
+
+	logging.info(f"Running script: {scriptName}")
+
 	try:
-		encounters = _main(script, args, scriptArgs, encounters)
+		encounters = run(script, args, encounters)
 	except Exception as e:
 		logging.error(e)
+		try:
+			telegram_send.send(messages=(f"Program crashed: {e}",))
+		except telegram.error.NetworkError as ne:
+			logging.error(f"telegram_send: connection failed {ne}")
+		raise
 	finally:
 		if script.storeEncounters is True:
-			lib.dumpJson(args["encounterFile"], jsn | {gameName: gameJson | {modName: modJson | {scriptName: encounters}}})
+			lib.dumpJson(encounterFile, jsn | {gameName: gameJson | {modName: modJson | {scriptName: encounters}}})
 			logging.info(f"saved encounters: {encounters}")
 
 		cv2.destroyAllWindows()
