@@ -20,8 +20,7 @@ class Script(BDSPScript):
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(2.5)
 
-		self.awaitPixel(LOADING_SCREEN_POS, COLOR_WHITE)
-		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE)
 
 		encounterFrame = self.checkShinyDialog(e, 1.5)
 

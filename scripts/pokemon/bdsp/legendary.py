@@ -25,12 +25,10 @@ class Script(BDSPScript):
 		self.press(Button.BUTTON_B)
 
 		# flash to enter battle
-		self.awaitPixel(LOADING_SCREEN_POS, COLOR_WHITE)
-		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE)
 
 		# flash inside battle
-		self.awaitPixel(LOADING_SCREEN_POS, COLOR_WHITE)
-		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE)
 
 		# encounter dialog
 		return (e + 1, self.checkShinyDialog(e, 1.5))
