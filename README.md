@@ -6,7 +6,7 @@ A repo containing my scripts running on the base of [this](https://github.com/as
 
 ## Requirements
 - Everything from the repo linked above (buzzer is optional)
-- Python (I'm using 3.9, but 3.8+ _should_ work)
+- Python (I'm using 3.9; maybe older ones work as well, but don't complain if they don't)
 - A capture card (to get a video signal from the Switch to the PC)
 
 
@@ -62,3 +62,18 @@ Run as `python3 -m pokemon.bdsp <script>` (or add `-h`/`--help` flag for more in
 
 # Contribute
 Additions to `lib/pokemon/langs` is welcome. But please try to keep special symbols out of the names (like ♀/♂ from Nidoran)
+
+# v2
+
+## How to use
+1. Rename `sample.config.json` to `config.json`
+2. Update the settings in `config.json` (if so desired)
+3. Run any of the scripts as a python module: `python3 -m v2 <game> <"module"> <script>`
+  - Example: `python3 -m v2 pokemon bdsp arceus`
+  - for more information add the `-h` flag after any of the arguments (doesn't quite work after `script`)
+    - Example: `python3 -m v2 pokemon bdsp -h`
+
+## Script list
+- To see all available games run `python3 -m v2 -h`
+- To see all available modules run `python3 -m v2 <module> -h`
+- To see all available scripts run `python3 -m v2 <game> <module> -h`
