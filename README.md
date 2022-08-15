@@ -15,15 +15,15 @@ A repo containing my scripts running on the base of [this](https://github.com/as
 2. Update the settings in `config.json` (if so desired)
 3. Run any of the scripts as a python module: `python3 -m scripts <game> <"module"> <script>`
   - Example: `python3 -m scripts pokemon bdsp arceus`
-  - for more information add the `-h` flag after any of the arguments (doesn't quite work after `script`)
+  - for more information add the `-h` flag after any of the arguments
     - Example: `python3 -m scripts pokemon bdsp -h`
 
 ## Script list
 - To see all available games run `python3 -m scripts -h`
 - To see all available modules run `python3 -m scripts <module> -h`
 - To see all available scripts run `python3 -m scripts <game> <module> -h`
-- To see the requirements for a script to run (successfully), add the `-r`/`--requirements` flag after the scriü
+- To see the requirements for a script to run (successfully), add the `-r`/`--requirements` flag after the script
   - Example: `python3 -m scripts pokemon bdsp arceus -r`
 
 # Contribute
-Additions to `lib/pokemon/langs` is welcome. But please try to keep special symbols out of the names (like ♀/♂ from Nidoran)
+Additions to `lib/pokemon/langs` are welcome. But please try to keep special symbols out of the names (like ♀/♂ from Nidoran)
