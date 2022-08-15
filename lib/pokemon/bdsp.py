@@ -27,7 +27,6 @@ from lib import Pixel
 from lib import Pos
 from lib import Script
 
-
 ENCOUNTER_DIALOG_POS = Pos(670, 430)
 SHORT_DIALOG_POS = Pos(560, 455)
 OWN_POKEMON_POS = Pos(5, 425)
@@ -40,6 +39,11 @@ langsPath = pathlib.Path(__file__).parent / "langs"
 class BDSPScript(Script):
 	@abstractmethod
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
+		raise NotImplementedError
+
+	@staticmethod
+	@abstractmethod
+	def requirements() -> tuple[str, ...]:
 		raise NotImplementedError
 
 	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:

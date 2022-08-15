@@ -209,7 +209,14 @@ class Script:
 
 	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
-		return argparse.ArgumentParser(*args, **kwargs, add_help=False)
+		parser = argparse.ArgumentParser(*args, **kwargs, add_help=False)
+		parser.add_argument("-r", "--requirements", action="store_true", dest="getRequirements", help="print out the requirements for a script")
+		return parser
+
+	@staticmethod
+	@abstractmethod
+	def requirements() -> tuple[str, ...]:
+		raise NotImplementedError
 
 	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:
 		self._ser = ser

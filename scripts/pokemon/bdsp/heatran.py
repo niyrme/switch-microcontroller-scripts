@@ -13,6 +13,10 @@ from lib.pokemon.bdsp import SHORT_DIALOG_POS
 
 
 class Script(BDSPScript):
+	@staticmethod
+	def requirements() -> tuple[str, ...]:
+		return ("Stand in front of Heatran",)
+
 	def awaitInGame(self) -> None:
 		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
 		logging.debug("startup screen")

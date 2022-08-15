@@ -15,6 +15,10 @@ from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 class Script(BDSPScript):
 	@staticmethod
+	def requirements() -> tuple[str, ...]:
+		return ("Stand in front of transition into Lake Verity",)
+
+	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
 		p = super(BDSPScript, BDSPScript).parser(*args, **kwargs, description="reset starter")
 		p.add_argument("starter", type=int, choices={1, 2, 3}, help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")

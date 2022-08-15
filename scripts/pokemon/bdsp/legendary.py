@@ -7,6 +7,10 @@ from lib.pokemon.bdsp import BDSPScript
 
 
 class Script(BDSPScript):
+	@staticmethod
+	def requirements() -> tuple[str, ...]:
+		return ("Stand in front of Dialga/Palkia",)
+
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()

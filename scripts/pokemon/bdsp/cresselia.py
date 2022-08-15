@@ -9,6 +9,18 @@ from lib.pokemon.bdsp import SHORT_DIALOG_POS
 
 
 class Script(BDSPScript):
+	@staticmethod
+	def requirements() -> tuple[str, ...]:
+		return (
+			"Stand in front of cresselia",
+			"Map app active in poketch",
+			"Repel in first slot in bag",
+			"First pokemon in party Level < 50 but > 10 (to only encounter cresselia with repel)",
+			"X menu",
+			"   Map tile at (2, 1)",
+			"   Bag tile at (1, 3)",
+		)
+
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()

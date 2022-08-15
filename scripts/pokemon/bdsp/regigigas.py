@@ -1,25 +1,27 @@
-import logging
-
 import numpy
 
 from lib import Button
-from lib import COLOR_BLACK
+from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
 from lib.pokemon.bdsp import BDSPScript
 
 
 class Script(BDSPScript):
+	@staticmethod
+	def requirements() -> tuple[str, ...]:
+		return ("Stand in front of Regigigas",)
+
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()
 
-		self.press(Button.L_UP, 0.3)
+		self.pressN(Button.BUTTON_A, 8, 1.5, render=True)
 
-		logging.debug("wait for flash (BLACK)")
-		self.awaitFlash(LOADING_SCREEN_POS, COLOR_BLACK, 5)
-		self.waitAndRender(10.5)
-
+		self.waitAndRender(3)
 		self.press(Button.BUTTON_A)
-		self.waitAndRender(10)
+
+		self.waitAndRender(3)
+		self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.waitAndRender(0.3)
 
 		return (e + 1, self.checkShinyDialog(e, 1))

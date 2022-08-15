@@ -9,6 +9,10 @@ from lib.pokemon.bdsp import BDSPScript
 
 
 class Script(BDSPScript):
+	@staticmethod
+	def requirements() -> tuple[str, ...]:
+		return ("Stand at the last step before the platform",)
+
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()

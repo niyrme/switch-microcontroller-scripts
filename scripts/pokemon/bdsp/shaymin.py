@@ -10,6 +10,10 @@ from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 
 class Script(BDSPScript):
+	@staticmethod
+	def requirements() -> tuple[str, ...]:
+		return ("Stand in front of Shaymin",)
+
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(3)

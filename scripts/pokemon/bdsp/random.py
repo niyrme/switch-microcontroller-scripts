@@ -16,6 +16,13 @@ from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 class Script(BDSPScript):
 	@staticmethod
+	def requirements() -> tuple[str, ...]:
+		return (
+			"Stand in a patch of grass with enough tiles (could take some time otherwise)",
+			"No repel active",
+		)
+
+	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
 		p = super(__class__, __class__).parser(*args, **kwargs, description="reset random encounters")
 		p.add_argument("direction", type=str, choices={"h", "v"}, help="direction to run in {(h)orizontal, (v)ertical} direction")

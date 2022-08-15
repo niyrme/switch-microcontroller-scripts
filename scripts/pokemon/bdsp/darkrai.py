@@ -10,6 +10,10 @@ from lib.pokemon.bdsp import SHORT_DIALOG_POS
 
 
 class Script(BDSPScript):
+	@staticmethod
+	def requirements() -> tuple[str, ...]:
+		return ("Stand in front of Darkrai",)
+
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()
