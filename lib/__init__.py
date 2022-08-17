@@ -2,9 +2,7 @@ import argparse
 import contextlib
 import json
 import logging
-import os
 import time
-import uuid
 from abc import abstractmethod
 from collections.abc import Callable
 from collections.abc import Generator
@@ -72,31 +70,6 @@ class Pixel(NamedTuple):
 
 	def __str__(self) -> str:
 		return f"({self.r}, {self.g}, {self.b})"
-
-
-class Config(NamedTuple):
-	serialPort: str
-	lang: str
-	notifyShiny: bool = False
-	renderCapture: bool = True
-	sendAllEncounters: bool = False
-	catchCrashes: bool = False
-	showLastRunDuration: bool = False
-
-	def __str__(self) -> str:
-		def getMark(b: bool) -> str:
-			return "\u2705" if b is True else "\u274E"
-
-		# works ¯\_(ツ)_/¯
-		return "\n".join((
-			f"   serial port: {self.serialPort}",
-			f"   lang: {self.lang}",
-			f"   {getMark(self.notifyShiny)} notify shiny encounters",
-			f"   {getMark(self.renderCapture)} render captured video",
-			f"   {getMark(self.sendAllEncounters)} send all encounters",
-			f"   {getMark(self.catchCrashes)} catch game crashes",
-			f"   {getMark(self.showLastRunDuration)} show last run duration",
-		))
 
 
 class Button(Enum):
@@ -218,6 +191,9 @@ class RequirementsAction(argparse.Action):
 		parser.exit()
 
 
+Config = dict[str, Any]
+
+
 class Script:
 	storeEncounters: bool = True
 
@@ -235,10 +211,10 @@ class Script:
 		self._ser = ser
 		self._cap = cap
 
-		self.config: Config = config
-
 		self.windowName: str = kwargs.pop("windowName", "Game")
 		self.extraStats: list[tuple[str, Any]] = list()
+
+		self.renderCapture: bool = config.pop("renderCapture", True)
 
 	def __call__(self, e: int) -> Any:
 		return self.main(e)
@@ -249,7 +225,7 @@ class Script:
 
 	def getframe(self) -> numpy.ndarray:
 		frame = self._cap.getFrame()
-		if self.config.renderCapture is True:
+		if self.renderCapture is True:
 			cv2.imshow(self.windowName, frame)
 
 		if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -422,11 +398,10 @@ class Script:
 		self.press(Button.BUTTON_A)
 
 	def _sendTelegram(self, **kwargs) -> None:
-		if self.config.notifyShiny is True:
-			try:
-				telegram_send.send(**kwargs)
-			except telegram.error.NetworkError as e:
-				logging.warning(f"telegram_send: connection failed: {e}")
+		try:
+			telegram_send.send(**kwargs)
+		except telegram.error.NetworkError as e:
+			logging.warning(f"telegram_send: connection failed: {e}")
 
 	def sendMsg(self, msg: str) -> None:
 		logging.debug(f"send telegram message: '{msg}'")
@@ -437,7 +412,5 @@ class Script:
 			self._sendTelegram(images=(img,))
 
 	def sendScreenshot(self, frame: numpy.ndarray) -> None:
-		scrName = f"tempScreenshot{uuid.uuid4()}.png"
-		cv2.imwrite(scrName, frame)
-		self.sendImg(scrName)
-		os.remove(scrName)
+		image = cv2.imencode(".png", frame)
+		self._sendTelegram(images=(image,))

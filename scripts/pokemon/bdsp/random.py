@@ -32,7 +32,7 @@ class Script(BDSPScript):
 	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 
-		direction: Literal["h", "v"] = kwargs["direction"]
+		direction: Literal["h", "v"] = kwargs.pop("direction")
 		assert direction in ("h", "v")
 
 		self.directions = cycle(
@@ -41,7 +41,7 @@ class Script(BDSPScript):
 			else (Button.L_UP, Button.L_DOWN),
 		)
 
-		self.delay = float(kwargs["delay"])
+		self.delay = float(kwargs.pop("delay"))
 
 		logging.debug(f"directions: {self.directions}")
 		logging.debug(f"delay: {self.delay}")

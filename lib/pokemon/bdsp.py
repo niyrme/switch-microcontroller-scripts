@@ -5,6 +5,7 @@ import pathlib
 import time
 from abc import abstractmethod
 from itertools import cycle
+from typing import Any
 from typing import Optional
 
 import cv2
@@ -49,9 +50,16 @@ class BDSPScript(Script):
 	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:
 		super().__init__(ser, cap, config, **kwargs)
 
-		tempLang: Optional[str] = kwargs["tempLang"]
+		tempLang: Optional[str] = kwargs.pop("tempLang", None)
 
-		lang = tempLang if tempLang is not None else config.lang
+		self.configPokemon: dict[str, Any] = config.pop("pokemon")
+		self.configBDSP: dict[str, Any] = self.configPokemon.pop("bdsp")
+
+		self.sendAllEncounters = self.configBDSP.pop("sendAllEncounters", False)
+		self.showLastRunDuration = self.configBDSP.pop("showLastRunDuration", False)
+		self.notifyShiny = self.configBDSP.pop("notifyShiny", False)
+
+		lang: str = tempLang or self.configBDSP.pop("lang")
 
 		logging.debug(f"language used for text recognition: {lang}")
 

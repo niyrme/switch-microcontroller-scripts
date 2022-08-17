@@ -1,11 +1,13 @@
 {
+	"renderCapture": true,
 	"serialPort": "COM0",
 
-	"lang": "en",
-
-	"notifyShiny": false,
-	"renderCapture": true,
-	"sendAllEncounters": false,
-	"catchCrashes": false,
-	"showLastRunDuration": false
+	"pokemon": {
+		"bdsp": {
+			"lang": "en",
+			"notifyShiny": false,
+			"sendAllEncounters": false,
+			"showLastRunDuration": false
+		}
+	}
 }

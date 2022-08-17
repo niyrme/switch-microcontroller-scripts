@@ -27,7 +27,7 @@ class Script(BDSPScript):
 	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 
-		self.starter = int(kwargs["starter"])
+		self.starter = int(kwargs.pop("starter"))
 		self.extraStats.append(("Resetting for", ("Turtwig", "Chimchar", "Piplup")[self.starter - 1]))
 
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:

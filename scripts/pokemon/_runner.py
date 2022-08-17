@@ -14,29 +14,21 @@ import lib
 from lib import Button
 from lib import Capture
 from lib import Config
-from lib import Script
 from lib.pokemon import ExecShiny
 from lib.pokemon.bdsp import BDSPScript
 
 
-def _run(scriptClass: Type[Script], args: dict[str, Any], encountersStart: int) -> int:
-	configJSON: dict = lib.loadJson(args.pop("configFile"))
+PokemonScript = Type[BDSPScript]
 
-	cfg = Config(
-		serialPort=configJSON.pop("serialPort", "COM0"),
-		lang=configJSON.pop("lang", "en"),
-		notifyShiny=configJSON.pop("notifyShiny", False),
-		renderCapture=configJSON.pop("renderCapture", True),
-		sendAllEncounters=configJSON.pop("sendAllEncounters", False),
-		catchCrashes=configJSON.pop("catchCrashes", False),
-		showLastRunDuration=configJSON.pop("showLastRunDuration", False),
-	)
+
+def _run(scriptClass: PokemonScript, args: dict[str, Any], encountersStart: int) -> int:
+	cfg: Config = lib.loadJson(args.pop("configFile"))
 
 	sendNth: int = args.pop("sendNth")
 
 	logging.info(f"start encounters: {encountersStart}")
 
-	with serial.Serial(cfg.serialPort, 9600) as ser, lib.shh(ser):
+	with serial.Serial(cfg.pop("serialPort", "COM0"), 9600) as ser, lib.shh(ser):
 		logging.info("setting up cv2. This may take a while...")
 		cap = Capture(
 			width=768,
@@ -70,7 +62,7 @@ def _run(scriptClass: Type[Script], args: dict[str, Any], encountersStart: int) 
 					("encounters", f"{currentEncounters:>03}/{encounters:>05}"),
 					("crashes", crashes),
 				]
-				if script.config.showLastRunDuration is True:
+				if script.showLastRunDuration is True:
 					stats.append(("last run duration", timedelta(days=runDuration.days, seconds=runDuration.seconds)))
 				stats += script.extraStats
 
@@ -102,20 +94,17 @@ def _run(scriptClass: Type[Script], args: dict[str, Any], encountersStart: int) 
 					continue
 				except lib.ExecCrash:
 					logging.warning("script crashed, reset switch to home screen and press ctrl+c to continue")
-					if script.config.catchCrashes is True:
-						print("\a")
-						script.sendMsg("script crashed!")
-						try:
-							while True:
-								script.waitAndRender(5)
-						except KeyboardInterrupt:
-							pass
+					script.sendMsg("script crashed!")
+					try:
+						while True:
+							script.waitAndRender(5)
+					except KeyboardInterrupt:
+						pass
 					script.waitAndRender(1)
 					script.pressN(Button.BUTTON_A, 5, 1.5)
 					crashes += 1
 					continue
 				except ExecShiny as shiny:
-					encounters = shiny.encounter
 					if isinstance(script, BDSPScript):
 						script.waitAndRender(15)
 						name = script.getName()
@@ -141,13 +130,13 @@ def _run(scriptClass: Type[Script], args: dict[str, Any], encountersStart: int) 
 						if cmd.lower() in ("y", "yes"):
 							continue
 						else:
-							raise lib.ExecStop
+							raise lib.ExecStop(shiny.encounter + 1)
 				else:
 					if sendNth >= 2 and currentEncounters % sendNth == 0:
 						logging.debug("send screenshot")
 						script.sendScreenshot(encounterFrame)
 
-					if script.config.sendAllEncounters is True:
+					if script.sendAllEncounters is True:
 						logging.debug("send screenshot")
 						script.sendScreenshot(encounterFrame)
 				finally:
@@ -168,7 +157,7 @@ def _run(scriptClass: Type[Script], args: dict[str, Any], encountersStart: int) 
 	raise AssertionError("unreachable")
 
 
-def run(args: dict[str, Any], modules: dict[str, Type[Script]]) -> int:
+def run(args: dict[str, Any], modules: dict[str, PokemonScript]) -> int:
 	modName: str = args.pop("mod")
 	scriptName: str = args["script"]
 

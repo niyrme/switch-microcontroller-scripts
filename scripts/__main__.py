@@ -88,7 +88,7 @@ def main() -> int:
 
 	logging.debug(f"setting log-level to {logging.getLevelName(logging.root.level)}")
 
-	Nth: int = args["sendNth"]
+	Nth: int = args.pop("sendNth")
 
 	if Nth >= 2:
 		m = {
