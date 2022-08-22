@@ -1,12 +1,11 @@
 import logging
+from typing import Optional
 
 import numpy
 
 from lib import Button
-from lib import COLOR_BLACK
-from lib import COLOR_WHITE
+from lib import Color
 from lib import ExecCrash
-from lib import ExecLock
 from lib import LOADING_SCREEN_POS
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import SHORT_DIALOG_POS
@@ -17,11 +16,18 @@ class Script(BDSPScript):
 	def requirements() -> tuple[str, ...]:
 		return ("Stand in front of Heatran",)
 
+	@property
+	def target(self) -> str:
+		return "Heatran"
+
+	def getName(self) -> Optional[str]:
+		return "Heatran"
+
 	def awaitInGame(self) -> None:
-		self.awaitColor(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitColor(LOADING_SCREEN_POS, Color.Black())
 		logging.debug("startup screen")
 
-		self.whileColor(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
+		self.whileColor(LOADING_SCREEN_POS, Color.Black(), 0.5, lambda: self.press(Button.BUTTON_A))
 		logging.debug("after startup")
 
 		self.waitAndRender(1)
@@ -34,11 +40,7 @@ class Script(BDSPScript):
 		self.waitAndRender(3)
 
 		# loading screen to game
-		if not self.awaitColor(LOADING_SCREEN_POS, COLOR_BLACK):
-			raise ExecLock
-		logging.debug("loading screen")
-		if not self.awaitNotColor(SHORT_DIALOG_POS, COLOR_BLACK):
-			raise ExecLock
+		self.awaitFlash(LOADING_SCREEN_POS, Color.Black())
 
 		logging.debug("in game")
 		self.waitAndRender(1)
@@ -50,14 +52,14 @@ class Script(BDSPScript):
 		self.waitAndRender(2)
 
 		self.press(Button.BUTTON_A)
-		self.awaitColor(SHORT_DIALOG_POS, COLOR_WHITE)
+		self.awaitColor(SHORT_DIALOG_POS, Color.White())
 		self.waitAndRender(0.5)
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(0.5)
 		self.press(Button.BUTTON_A)
 
 		self.waitAndRender(3)
-		self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.awaitFlash(LOADING_SCREEN_POS, Color.White())
 
 		logging.debug("waiting for dialog")
 

@@ -1,9 +1,10 @@
 import logging
+from typing import Optional
 
 import numpy
 
 from lib import Button
-from lib import COLOR_WHITE
+from lib import Color
 from lib import LOADING_SCREEN_POS
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import OWN_POKEMON_POS
@@ -14,17 +15,24 @@ class Script(BDSPScript):
 	def requirements() -> tuple[str, ...]:
 		return ("Stand in front of Shaymin",)
 
+	@property
+	def target(self) -> str:
+		return "Shaymin"
+
+	def getName(self) -> Optional[str]:
+		return "Shaymin"
+
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(3)
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(2.5)
 
-		self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.awaitFlash(LOADING_SCREEN_POS, Color.White())
 
 		encounterFrame = self.checkShinyDialog(e, 1.5)
 
-		self.whileNotColor(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press(Button.BUTTON_B))
+		self.whileNotColor(OWN_POKEMON_POS, Color.White(), 0.5, lambda: self.press(Button.BUTTON_B))
 		self.waitAndRender(1)
 
 		self.runFromEncounter()

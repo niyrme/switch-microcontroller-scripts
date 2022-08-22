@@ -1,8 +1,9 @@
+from typing import Optional
+
 import numpy
 
 from lib import Button
-from lib import COLOR_BLACK
-from lib import COLOR_WHITE
+from lib import Color
 from lib import LOADING_SCREEN_POS
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import SHORT_DIALOG_POS
@@ -21,26 +22,33 @@ class Script(BDSPScript):
 			"   Bag tile at (1, 3)",
 		)
 
+	@property
+	def target(self) -> str:
+		return "Cresselia"
+
+	def getName(self) -> Optional[str]:
+		return "Cresselia"
+
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()
 
 		self.press(Button.BUTTON_A)
-		self.awaitFlash(LOADING_SCREEN_POS, COLOR_BLACK, 5)
+		self.awaitFlash(LOADING_SCREEN_POS, Color.Black(), 5)
 		self.waitAndRender(1)
-		self.awaitColor(SHORT_DIALOG_POS, COLOR_WHITE)
+		self.awaitColor(SHORT_DIALOG_POS, Color.White())
 
 		self.waitAndRender(1)
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(1)
 		self.press(Button.BUTTON_A)
 
-		self.awaitFlash(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitFlash(LOADING_SCREEN_POS, Color.Black())
 
 		self.waitAndRender(1)
 
 		self._ser.write(b"s")
-		self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.awaitFlash(LOADING_SCREEN_POS, Color.White())
 		self.press(Button.EMPTY)
 
 		return (e + 1, self.resetRoamer(e))

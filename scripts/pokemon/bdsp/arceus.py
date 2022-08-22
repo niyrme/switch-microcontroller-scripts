@@ -1,9 +1,10 @@
 import logging
+from typing import Optional
 
 import numpy
 
 from lib import Button
-from lib import COLOR_BLACK
+from lib import Color
 from lib import LOADING_SCREEN_POS
 from lib.pokemon.bdsp import BDSPScript
 
@@ -13,6 +14,13 @@ class Script(BDSPScript):
 	def requirements() -> tuple[str, ...]:
 		return ("Stand at the last step before the platform",)
 
+	@property
+	def target(self) -> str:
+		return "Arceus"
+
+	def getName(self) -> Optional[str]:
+		return "Arceus"
+
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
 		self.awaitInGame()
@@ -20,7 +28,7 @@ class Script(BDSPScript):
 		self.press(Button.L_UP, 0.3)
 
 		logging.debug("wait for flash (BLACK)")
-		self.awaitFlash(LOADING_SCREEN_POS, COLOR_BLACK, 5)
+		self.awaitFlash(LOADING_SCREEN_POS, Color.Black(), 5)
 		self.waitAndRender(10.5)
 
 		self.press(Button.BUTTON_A)
