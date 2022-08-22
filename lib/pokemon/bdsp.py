@@ -2,6 +2,7 @@ import argparse
 import difflib
 import logging
 import pathlib
+import sys
 import time
 from abc import abstractmethod
 from itertools import cycle
@@ -18,13 +19,10 @@ from . import LOG_DELAY
 from lib import Button
 from lib import Capture
 from lib import Color
-from lib import COLOR_BLACK
-from lib import COLOR_WHITE
 from lib import Config
 from lib import ExecCrash
 from lib import ExecLock
 from lib import LOADING_SCREEN_POS
-from lib import PAD
 from lib import Pos
 from lib import Script
 
@@ -70,14 +68,18 @@ class BDSPScript(Script):
 		logging.debug(f"language used for text recognition: {lang}")
 
 		with open(langsPath / (lang + ".txt")) as f:
-			self._names = f.readlines()
+			self._names = set(f.readlines())
 
 	@property
 	def extraStats(self) -> tuple[tuple[str, Any], ...]:
 		s = []
-		if self._showLastDelay is True: s.append(("last delay", self._lastDelay))
-		if self._showMaxDelay is True: s.append(("max delay", self._maxDelay))
+		if self._showLastDelay is True: s.append(("Last delay", self._lastDelay))
+		if self._showMaxDelay is True: s.append(("Max delay", self._maxDelay))
 		return super().extraStats + tuple(s)
+
+	@property
+	def target(self) -> str:
+		return "Unknown"
 
 	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
@@ -93,37 +95,37 @@ class BDSPScript(Script):
 
 	def checkShinyDialog(self, e: int, delay: float = 2) -> numpy.ndarray:
 		logging.debug("waiting for dialog")
-		self.awaitColor(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
-		print(f"dialog start{PAD}\r", end="")
+		self.awaitColor(ENCOUNTER_DIALOG_POS, Color.White())
+		print(f"dialog start{' ' * 30}\r", end="")
 
-		self.awaitNotColor(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
-		print(f"dialog end{PAD}\r", end="")
+		self.awaitNotColor(ENCOUNTER_DIALOG_POS, Color.White())
+		print(f"dialog end{' ' * 30}\r", end="")
 		t0 = time.time()
 
 		encounterFrame = self.getframe()
-		self.awaitColor(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
+		self.awaitColor(ENCOUNTER_DIALOG_POS, Color.White())
 
 		diff = round(time.time() - t0, 3)
 		self._lastDelay = diff
 		self._maxDelay = max(self._maxDelay, diff)
 
 		logging.log(LOG_DELAY, f"dialog delay: {diff}")
-		print(f"dialog delay: {diff}s{PAD}")
+		print(f"dialog delay: {diff}s{' ' * 30}")
 
 		self.waitAndRender(0.5)
 
 		if delay + 10 > diff > delay:
 			raise ExecShiny(e, encounterFrame)
 		elif diff >= 89:
-			raise ExecLock
+			raise ExecLock("checking shiny dialog timed out")
 		else:
 			return encounterFrame
 
 	def awaitInGame(self) -> None:
-		self.awaitColor(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitColor(LOADING_SCREEN_POS, Color.Black())
 		logging.debug("startup screen")
 
-		self.whileColor(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
+		self.whileColor(LOADING_SCREEN_POS, Color.Black(), 0.5, lambda: self.press(Button.BUTTON_A))
 		logging.debug("after startup")
 
 		self.waitAndRender(1)
@@ -136,16 +138,16 @@ class BDSPScript(Script):
 		self.waitAndRender(3)
 
 		# loading screen to game
-		self.awaitColor(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitColor(LOADING_SCREEN_POS, Color.Black())
 		logging.debug("loading screen")
-		self.awaitNotColor(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitNotColor(LOADING_SCREEN_POS, Color.Black())
 
 		logging.debug("in game")
 		self.waitAndRender(1)
 
 	def resetRoamer(self, e: int) -> numpy.ndarray:
 		logging.debug("reset roamer")
-		print("travel to Jubilife City", PAD)
+		print("travel to Jubilife City")
 		self.waitAndRender(0.5)
 		self.press(Button.BUTTON_X)
 		self.waitAndRender(0.5)
@@ -157,17 +159,19 @@ class BDSPScript(Script):
 		self.waitAndRender(1.5)
 		self.press(Button.BUTTON_A)
 
-		while not self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE):
-			# ???
-			for _ in range(3):
-				self.press(Button.BUTTON_B)
-				self.waitAndRender(0.5)
-
-			self.press(Button.L_DOWN_LEFT, 3)
-			self.press(Button.L_UP_RIGHT, 0.3, render=True)
-			self.press(Button.BUTTON_A)
-			self.waitAndRender(1.5)
-			self.press(Button.BUTTON_A)
+		while True:
+			try:
+				self.awaitFlash(LOADING_SCREEN_POS, Color.White())
+			except ExecLock as ex:
+				print(ex, file=sys.stderr)
+				self.pressN(Button.BUTTON_B, 3, 0.5, render=True)
+				self.press(Button.L_DOWN_LEFT, 3)
+				self.press(Button.L_UP_RIGHT, 0.3, render=True)
+				self.press(Button.BUTTON_A)
+				self.waitAndRender(1.5)
+				self.press(Button.BUTTON_A)
+			else:
+				break
 
 		self.waitAndRender(2)
 
@@ -206,19 +210,11 @@ class BDSPScript(Script):
 				self.press(Button.BUTTON_A)
 				self.waitAndRender(1.5)
 
-				for _ in range(4):
-					self.press(Button.L_RIGHT)
-					self.waitAndRender(0.1)
+				self.pressN(Button.L_RIGHT, 4, 0.1, render=True)
 
 				logging.debug("use repel")
-				self.press(Button.BUTTON_A)
-				self.waitAndRender(1)
-				self.press(Button.BUTTON_A)
-				self.waitAndRender(1)
-				self.press(Button.BUTTON_A)
-				for _ in range(4):
-					self.waitAndRender(1)
-					self.press(Button.BUTTON_B)
+				self.pressN(Button.BUTTON_A, 3, 1, render=True)
+				self.pressN(Button.BUTTON_B, 5, 1, render=True)
 
 				self._ser.write(b"a")
 
@@ -226,14 +222,12 @@ class BDSPScript(Script):
 				logging.debug("go for encounter")
 				tEnd = time.time() + 2
 				frame = self.getframe()
-				while not numpy.array_equal(
-					frame[LOADING_SCREEN_POS.y][LOADING_SCREEN_POS.x],
-					COLOR_WHITE.tpl,
-				):
+				while not numpy.array_equal(frame[LOADING_SCREEN_POS.y][LOADING_SCREEN_POS.x], Color.White().tpl):
 					if time.time() > tEnd:
 						self._ser.write(next(_directions).encode())
 						tEnd = time.time() + 0.5
-					if numpy.array_equal(frame[SHORT_DIALOG_POS.y][SHORT_DIALOG_POS.x], COLOR_WHITE):
+
+					if numpy.array_equal(frame[SHORT_DIALOG_POS.y][SHORT_DIALOG_POS.x], Color.White()):
 						self._ser.write(b"0")
 						logging.debug("re-apply repel")
 						# repel used up
@@ -244,9 +238,9 @@ class BDSPScript(Script):
 						self.press(Button.BUTTON_A, 0.5)
 					frame = self.getframe()
 
-				print("encounter!", PAD)
+				print("encounter!")
 
-				self.awaitNotColor(LOADING_SCREEN_POS, COLOR_WHITE)
+				self.awaitNotColor(LOADING_SCREEN_POS, Color.White())
 				return self.checkShinyDialog(e, 1.5)
 			else:
 				logging.debug("reload area")
@@ -263,14 +257,14 @@ class BDSPScript(Script):
 			self.waitAndRender(0.5)
 			self.press(Button.BUTTON_B)
 
-			if self.awaitColor(OWN_POKEMON_POS, COLOR_BLACK, 10):
-				logging.debug("fade out", PAD)
+			if self.awaitColor(OWN_POKEMON_POS, Color.Black(), 10):
+				logging.debug("fade out")
 				break
 			else:
 				self.waitAndRender(15)
 				logging.debug("failed to run or wrong option selected (due to lag, or some other thing)")
 
-		self.awaitNotColor(OWN_POKEMON_POS, COLOR_BLACK)
+		self.awaitNotColor(OWN_POKEMON_POS, Color.Black())
 		logging.debug("return to game")
 		self.waitAndRender(1)
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import contextlib
 import json
@@ -68,6 +70,14 @@ class Color(NamedTuple):
 	def tpl(self) -> tuple[int, int, int]:
 		return (self.r, self.g, self.b)
 
+	@staticmethod
+	def White() -> Color:
+		return Color(255, 255, 255)
+
+	@staticmethod
+	def Black() -> Color:
+		return Color(0, 0, 0)
+
 	def __str__(self) -> str:
 		return f"({self.r}, {self.g}, {self.b})"
 
@@ -105,11 +115,6 @@ class Button(Enum):
 	def encode(self) -> bytes:
 		return str(self.value).encode()
 
-
-PAD = " " * 32
-
-COLOR_BLACK = Color(0, 0, 0)
-COLOR_WHITE = Color(255, 255, 255)
 
 LOADING_SCREEN_POS = Pos(705, 15)
 
@@ -392,7 +397,7 @@ class Script:
 		self.waitAndRender(2)
 		self.press(Button.BUTTON_X)
 		self.waitAndRender(1)
-		self.whileNotColor(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
+		self.whileNotColor(LOADING_SCREEN_POS, Color.Black(), 0.5, lambda: self.press(Button.BUTTON_A))
 
 	def _sendTelegram(self, **kwargs) -> None:
 		try:
