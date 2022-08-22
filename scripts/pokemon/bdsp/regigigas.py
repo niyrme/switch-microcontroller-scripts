@@ -1,8 +1,10 @@
 import numpy
 
 from lib import Button
+from lib import Color
 from lib import COLOR_WHITE
 from lib import LOADING_SCREEN_POS
+from lib import Pos
 from lib.pokemon.bdsp import BDSPScript
 
 
@@ -15,10 +17,9 @@ class Script(BDSPScript):
 		self.resetGame()
 		self.awaitInGame()
 
-		self.pressN(Button.BUTTON_A, 8, 1.5, render=True)
+		self.waitAndRender(1.5)
 
-		self.waitAndRender(3)
-		self.press(Button.BUTTON_A)
+		self.whileNearColor(Pos(705, 424), Color(186, 246, 255), 12, 0.5, lambda: self.press(Button.BUTTON_A))
 
 		self.waitAndRender(3)
 		self.awaitFlash(LOADING_SCREEN_POS, COLOR_WHITE)

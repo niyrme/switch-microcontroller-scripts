@@ -28,7 +28,7 @@ class Script(BDSPScript):
 		self.press(Button.BUTTON_A)
 		self.awaitFlash(LOADING_SCREEN_POS, COLOR_BLACK, 5)
 		self.waitAndRender(1)
-		self.awaitPixel(SHORT_DIALOG_POS, COLOR_WHITE)
+		self.awaitColor(SHORT_DIALOG_POS, COLOR_WHITE)
 
 		self.waitAndRender(1)
 		self.press(Button.BUTTON_A)

@@ -24,7 +24,7 @@ class Script(BDSPScript):
 
 		encounterFrame = self.checkShinyDialog(e, 1.5)
 
-		self.whileNotPixel(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press(Button.BUTTON_B))
+		self.whileNotColor(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press(Button.BUTTON_B))
 		self.waitAndRender(1)
 
 		self.runFromEncounter()

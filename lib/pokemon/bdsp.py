@@ -17,6 +17,7 @@ from . import ExecShiny
 from . import LOG_DELAY
 from lib import Button
 from lib import Capture
+from lib import Color
 from lib import COLOR_BLACK
 from lib import COLOR_WHITE
 from lib import Config
@@ -24,7 +25,6 @@ from lib import ExecCrash
 from lib import ExecLock
 from lib import LOADING_SCREEN_POS
 from lib import PAD
-from lib import Pixel
 from lib import Pos
 from lib import Script
 
@@ -32,7 +32,7 @@ ENCOUNTER_DIALOG_POS = Pos(670, 430)
 SHORT_DIALOG_POS = Pos(560, 455)
 OWN_POKEMON_POS = Pos(5, 425)
 ROAMER_MAP_POS = Pos(340, 280)
-ROAMER_MAP_COLOR = Pixel(32, 60, 28)
+ROAMER_MAP_COLOR = Color(32, 60, 28)
 
 langsPath = pathlib.Path(__file__).parent / "langs"
 
@@ -59,12 +59,25 @@ class BDSPScript(Script):
 		self.showLastRunDuration = self.configBDSP.pop("showLastRunDuration", False)
 		self.notifyShiny = self.configBDSP.pop("notifyShiny", False)
 
+		self._showMaxDelay: bool = kwargs.pop("maxDelay")
+		self._maxDelay: float = 0
+
+		self._showLastDelay: bool = kwargs.pop("lastDelay")
+		self._lastDelay: float = 0
+
 		lang: str = tempLang or self.configBDSP.pop("lang")
 
 		logging.debug(f"language used for text recognition: {lang}")
 
 		with open(langsPath / (lang + ".txt")) as f:
-			self.names = f.readlines()
+			self._names = f.readlines()
+
+	@property
+	def extraStats(self) -> tuple[tuple[str, Any], ...]:
+		s = []
+		if self._showLastDelay is True: s.append(("last delay", self._lastDelay))
+		if self._showMaxDelay is True: s.append(("max delay", self._maxDelay))
+		return super().extraStats + tuple(s)
 
 	@staticmethod
 	def parser(*args, **kwargs) -> argparse.ArgumentParser:
@@ -73,23 +86,29 @@ class BDSPScript(Script):
 		# IDK what I'm doing here but it works ¯\_(ツ)_/¯
 		p = super(__class__, __class__).parser(*args, **kwargs)
 		p.add_argument("-l", "--lang", action="store", choices=langs, default=None, dest="tempLang", help="override lang for this run only (instead of using the one from config)")
+		p.add_argument("-m", "--max-delay", action="store_true", dest="maxDelay", help="show highest delay this run")
+		p.add_argument("-L", "--last-delay", action="store_true", dest="lastDelay", help="show last dialog delay")
+
 		return p
 
 	def checkShinyDialog(self, e: int, delay: float = 2) -> numpy.ndarray:
 		logging.debug("waiting for dialog")
-		self.awaitPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
+		self.awaitColor(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 		print(f"dialog start{PAD}\r", end="")
 
-		self.awaitNotPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
+		self.awaitNotColor(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 		print(f"dialog end{PAD}\r", end="")
 		t0 = time.time()
 
 		encounterFrame = self.getframe()
-		self.awaitPixel(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
+		self.awaitColor(ENCOUNTER_DIALOG_POS, COLOR_WHITE)
 
-		diff = time.time() - t0
-		logging.log(LOG_DELAY, f"dialog delay: {diff:.3f}")
-		print(f"dialog delay: {diff:.3f}s{PAD}")
+		diff = round(time.time() - t0, 3)
+		self._lastDelay = diff
+		self._maxDelay = max(self._maxDelay, diff)
+
+		logging.log(LOG_DELAY, f"dialog delay: {diff}")
+		print(f"dialog delay: {diff}s{PAD}")
 
 		self.waitAndRender(0.5)
 
@@ -97,14 +116,14 @@ class BDSPScript(Script):
 			raise ExecShiny(e, encounterFrame)
 		elif diff >= 89:
 			raise ExecLock
-
-		return encounterFrame
+		else:
+			return encounterFrame
 
 	def awaitInGame(self) -> None:
-		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitColor(LOADING_SCREEN_POS, COLOR_BLACK)
 		logging.debug("startup screen")
 
-		self.whilePixel(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
+		self.whileColor(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
 		logging.debug("after startup")
 
 		self.waitAndRender(1)
@@ -117,9 +136,9 @@ class BDSPScript(Script):
 		self.waitAndRender(3)
 
 		# loading screen to game
-		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitColor(LOADING_SCREEN_POS, COLOR_BLACK)
 		logging.debug("loading screen")
-		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitNotColor(LOADING_SCREEN_POS, COLOR_BLACK)
 
 		logging.debug("in game")
 		self.waitAndRender(1)
@@ -162,7 +181,7 @@ class BDSPScript(Script):
 		while True:
 			self.press(Button.BUTTON_R)
 			self.waitAndRender(1)
-			encounter = self.awaitNearPixel(ROAMER_MAP_POS, ROAMER_MAP_COLOR, 45, 3)
+			encounter = self.awaitNearColor(ROAMER_MAP_POS, ROAMER_MAP_COLOR, 45, 3)
 
 			self.press(Button.BUTTON_R)
 			self.waitAndRender(1)
@@ -227,7 +246,7 @@ class BDSPScript(Script):
 
 				print("encounter!", PAD)
 
-				self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
+				self.awaitNotColor(LOADING_SCREEN_POS, COLOR_WHITE)
 				return self.checkShinyDialog(e, 1.5)
 			else:
 				logging.debug("reload area")
@@ -244,14 +263,14 @@ class BDSPScript(Script):
 			self.waitAndRender(0.5)
 			self.press(Button.BUTTON_B)
 
-			if self.awaitPixel(OWN_POKEMON_POS, COLOR_BLACK, 10):
+			if self.awaitColor(OWN_POKEMON_POS, COLOR_BLACK, 10):
 				logging.debug("fade out", PAD)
 				break
 			else:
 				self.waitAndRender(15)
 				logging.debug("failed to run or wrong option selected (due to lag, or some other thing)")
 
-		self.awaitNotPixel(OWN_POKEMON_POS, COLOR_BLACK)
+		self.awaitNotColor(OWN_POKEMON_POS, COLOR_BLACK)
 		logging.debug("return to game")
 		self.waitAndRender(1)
 
@@ -261,6 +280,6 @@ class BDSPScript(Script):
 		text = pytesseract.image_to_string(crop)
 
 		try:
-			return difflib.get_close_matches(str(text).strip(), self.names, n=1)[0]
+			return difflib.get_close_matches(str(text).strip(), self._names, n=1)[0]
 		except IndexError:
 			return None

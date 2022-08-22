@@ -18,10 +18,10 @@ class Script(BDSPScript):
 		return ("Stand in front of Heatran",)
 
 	def awaitInGame(self) -> None:
-		self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK)
+		self.awaitColor(LOADING_SCREEN_POS, COLOR_BLACK)
 		logging.debug("startup screen")
 
-		self.whilePixel(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
+		self.whileColor(LOADING_SCREEN_POS, COLOR_BLACK, 0.5, lambda: self.press(Button.BUTTON_A))
 		logging.debug("after startup")
 
 		self.waitAndRender(1)
@@ -34,10 +34,10 @@ class Script(BDSPScript):
 		self.waitAndRender(3)
 
 		# loading screen to game
-		if not self.awaitPixel(LOADING_SCREEN_POS, COLOR_BLACK):
+		if not self.awaitColor(LOADING_SCREEN_POS, COLOR_BLACK):
 			raise ExecLock
 		logging.debug("loading screen")
-		if not self.awaitNotPixel(SHORT_DIALOG_POS, COLOR_BLACK):
+		if not self.awaitNotColor(SHORT_DIALOG_POS, COLOR_BLACK):
 			raise ExecLock
 
 		logging.debug("in game")
@@ -50,7 +50,7 @@ class Script(BDSPScript):
 		self.waitAndRender(2)
 
 		self.press(Button.BUTTON_A)
-		self.awaitPixel(SHORT_DIALOG_POS, COLOR_WHITE)
+		self.awaitColor(SHORT_DIALOG_POS, COLOR_WHITE)
 		self.waitAndRender(0.5)
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(0.5)

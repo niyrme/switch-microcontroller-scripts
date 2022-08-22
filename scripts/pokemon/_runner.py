@@ -64,7 +64,7 @@ def _run(scriptClass: PokemonScript, args: dict[str, Any], encountersStart: int)
 				]
 				if script.showLastRunDuration is True:
 					stats.append(("last run duration", timedelta(days=runDuration.days, seconds=runDuration.seconds)))
-				stats += script.extraStats
+				stats.extend(script.extraStats)
 
 				maxStatInfoLen = max(len(s[0]) for s in stats) + 1
 

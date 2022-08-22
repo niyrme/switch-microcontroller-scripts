@@ -1,7 +1,12 @@
 import argparse
+import difflib
 import time
+from typing import Any
+from typing import Optional
 
+import cv2
 import numpy
+import pytesseract
 
 import lib
 from lib import Button
@@ -27,8 +32,24 @@ class Script(BDSPScript):
 	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 
-		self.starter = int(kwargs.pop("starter"))
-		self.extraStats.append(("Resetting for", ("Turtwig", "Chimchar", "Piplup")[self.starter - 1]))
+		self._starter = int(kwargs.pop("starter"))
+		self._starterName = ("Turtwig", "Chimchar", "Piplup")[self._starter - 1]
+
+	@property
+	def extraStats(self) -> tuple[tuple[str, Any], ...]:
+		return super().extraStats + (
+			("resetting for", self._starterName),
+		)
+
+	def getName(self) -> Optional[str]:
+		frame = cv2.cvtColor(self.getframe(), cv2.COLOR_BGR2GRAY)
+		crop = frame[400:420, 15:115]
+		text = pytesseract.image_to_string(crop)
+
+		try:
+			return difflib.get_close_matches(str(text).strip(), self._names, n=1)[0]
+		except IndexError:
+			return None
 
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		self.resetGame()
@@ -49,7 +70,7 @@ class Script(BDSPScript):
 		print(f"select starter{PAD}\r", end="")
 		self.press(Button.BUTTON_B)
 		self.waitAndRender(2)
-		for _ in range(self.starter - 1):
+		for _ in range(self._starter - 1):
 			self.press(Button.L_RIGHT, duration=0.2)
 			self.waitAndRender(1)
 
@@ -69,7 +90,7 @@ class Script(BDSPScript):
 		encounterFrame = self.getframe()
 
 		t0 = time.time()
-		crash = self.awaitPixel(OWN_POKEMON_POS, COLOR_WHITE)
+		crash = self.awaitColor(OWN_POKEMON_POS, COLOR_WHITE)
 		diff = time.time() - t0
 
 		print(f"dialog delay: {diff:.3f}s", PAD)

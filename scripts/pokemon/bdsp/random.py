@@ -35,16 +35,16 @@ class Script(BDSPScript):
 		direction: Literal["h", "v"] = kwargs.pop("direction")
 		assert direction in ("h", "v")
 
-		self.directions = cycle(
+		self._directions = cycle(
 			(Button.L_LEFT, Button.L_RIGHT)
 			if direction == "h"
 			else (Button.L_UP, Button.L_DOWN),
 		)
 
-		self.delay = float(kwargs.pop("delay"))
+		self._delay = float(kwargs.pop("delay"))
 
-		logging.debug(f"directions: {self.directions}")
-		logging.debug(f"delay: {self.delay}")
+		logging.debug(f"directions: {self._directions}")
+		logging.debug(f"delay: {self._delay}")
 
 	def main(self, e: int) -> tuple[int, numpy.ndarray]:
 		tEnd = time.time()
@@ -55,17 +55,17 @@ class Script(BDSPScript):
 			COLOR_WHITE.tpl,
 		):
 			if time.time() > tEnd:
-				self._ser.write(next(self.directions).encode())
-				tEnd = time.time() + self.delay
+				self._ser.write(next(self._directions).encode())
+				tEnd = time.time() + self._delay
 			frame = self.getframe()
 		print("encounter!", PAD)
 		self._ser.write(b"0")
 
-		self.awaitNotPixel(LOADING_SCREEN_POS, COLOR_WHITE)
+		self.awaitNotColor(LOADING_SCREEN_POS, COLOR_WHITE)
 
 		encounterFrame = self.checkShinyDialog(0, 1.5)
 
-		self.whileNotPixel(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press(Button.BUTTON_B))
+		self.whileNotColor(OWN_POKEMON_POS, COLOR_WHITE, 0.5, lambda: self.press(Button.BUTTON_B))
 		self.waitAndRender(1)
 
 		self.runFromEncounter()
