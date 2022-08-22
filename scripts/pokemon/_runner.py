@@ -43,7 +43,7 @@ def _run(scriptClass: PokemonScript, args: dict[str, Any], encountersStart: int)
 		encounters = encountersStart
 		crashes = 0
 
-		script = scriptClass(ser, cap, cfg, **args, windowName=f"Pokermans: {str(args['script']).capitalize()}")
+		script = scriptClass(ser, cap, cfg, **args, windowName="Pokermans")
 		script.sendMsg("Script started")
 		logging.info("script started")
 		script.waitAndRender(1)
@@ -57,17 +57,17 @@ def _run(scriptClass: PokemonScript, args: dict[str, Any], encountersStart: int)
 				runDelta = datetime.now() - tStart
 				avg = runDelta / (currentEncounters if currentEncounters != 0 else 1)
 				stats: list[tuple[str, Any]] = [
-					("running for", timedelta(days=runDelta.days, seconds=runDelta.seconds)),
-					("average per reset", timedelta(days=avg.days, seconds=avg.seconds)),
-					("encounters", f"{currentEncounters:>03}/{encounters:>05}"),
-					("crashes", crashes),
+					("Target", script.target),
+					("Running for", timedelta(days=runDelta.days, seconds=runDelta.seconds)),
+					("Average per reset", timedelta(days=avg.days, seconds=avg.seconds)),
+					("Encounters", f"{currentEncounters:>03}/{encounters:>05}"),
+					("Crashes", crashes),
 				]
 				if script.showLastRunDuration is True:
-					stats.append(("last run duration", timedelta(days=runDuration.days, seconds=runDuration.seconds)))
+					stats.append(("Last run duration", timedelta(days=runDuration.days, seconds=runDuration.seconds)))
 				stats.extend(script.extraStats)
 
 				maxStatInfoLen = max(len(s[0]) for s in stats) + 1
-
 				for (info, stat) in stats:
 					print(f"{(info + ':').ljust(maxStatInfoLen)} {stat}")
 
