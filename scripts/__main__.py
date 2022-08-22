@@ -88,14 +88,16 @@ def main() -> int:
 
 	logging.debug(f"setting log-level to {logging.getLevelName(logging.root.level)}")
 
-	Nth: int = args["sendNth"]
+	Nth = args["sendNth"]
+	_Nth = str(Nth)
 
 	if Nth >= 2:
-		m = {
-			1: "st",
-			2: "nd",
-			3: "rd",
-		}.get(int(str(Nth)[-1]), "th")
+		for (n, s) in (("11", "th"), ("12", "th"), ("13", "th"), ("1", "st"), ("2", "nd"), ("3", "rd")):
+			if _Nth.endswith(n):
+				m = s
+				break
+		else:
+			m = "th"
 
 		logging.info(f"sending screenshot of every {Nth}{m} encounter")
 
