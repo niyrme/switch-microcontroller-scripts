@@ -56,14 +56,15 @@ class BDSPScript(Script):
 		self.sendAllEncounters = self.configBDSP.pop("sendAllEncounters", False)
 		self.showLastRunDuration = self.configBDSP.pop("showLastRunDuration", False)
 		self.notifyShiny = self.configBDSP.pop("notifyShiny", False)
+		self.showBnp = self.configBDSP.pop("showBnp", False)
 
-		self._showMaxDelay: bool = kwargs.pop("maxDelay")
+		self._showMaxDelay: bool = self.configBDSP.pop("showMaxDelay", False)
 		self._maxDelay: float = 0
 
-		self._showLastDelay: bool = kwargs.pop("lastDelay")
+		self._showLastDelay: bool = self.configBDSP.pop("showLastDelay", False)
 		self._lastDelay: float = 0
 
-		lang: str = tempLang or self.configBDSP.pop("lang")
+		lang: str = tempLang or self.configPokemon.pop("lang")
 
 		logging.debug(f"language used for text recognition: {lang}")
 
@@ -88,8 +89,6 @@ class BDSPScript(Script):
 		# IDK what I'm doing here but it works ¯\_(ツ)_/¯
 		p = super(__class__, __class__).parser(*args, **kwargs)
 		p.add_argument("-l", "--lang", action="store", choices=langs, default=None, dest="tempLang", help="override lang for this run only (instead of using the one from config)")
-		p.add_argument("-m", "--max-delay", action="store_true", dest="maxDelay", help="show highest delay this run")
-		p.add_argument("-L", "--last-delay", action="store_true", dest="lastDelay", help="show last dialog delay")
 
 		return p
 

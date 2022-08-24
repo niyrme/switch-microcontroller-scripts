@@ -67,6 +67,9 @@ def _run(scriptClass: PokemonScript, args: dict[str, Any], encountersStart: int)
 				]
 				if script.showLastRunDuration is True:
 					stats.append(("Last run duration", timedelta(days=runDuration.days, seconds=runDuration.seconds)))
+				if script.showBnp is True:
+					bnp = (1 - ((4095 / 4096) ** encounters)) * 100
+					stats.append(("B(n, p)", f"{bnp:.2f}%"))
 				stats.extend(script.extraStats)
 
 				maxStatInfoLen = max(len(s[0]) for s in stats) + 1
