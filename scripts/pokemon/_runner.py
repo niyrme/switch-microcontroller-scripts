@@ -9,6 +9,7 @@ import cv2
 import serial
 import telegram
 import telegram_send
+import yaml
 
 import lib
 from lib import Button
@@ -22,7 +23,8 @@ PokemonScript = Type[BDSPScript]
 
 
 def _run(scriptClass: PokemonScript, args: dict[str, Any], encountersStart: int) -> int:
-	cfg: Config = lib.loadJson(args.pop("configFile"))
+	with open(args.pop("configFile"), "r") as f:
+		cfg: Config = yaml.safe_load(f)
 
 	sendNth: int = args.pop("sendNth")
 
@@ -69,6 +71,8 @@ def _run(scriptClass: PokemonScript, args: dict[str, Any], encountersStart: int)
 
 				maxStatInfoLen = max(len(s[0]) for s in stats) + 1
 				for (info, stat) in stats:
+					if isinstance(stat, float):
+						stat = f"{stat:.3f}"
 					print(f"{(info + ':').ljust(maxStatInfoLen)} {stat}")
 
 				print()
