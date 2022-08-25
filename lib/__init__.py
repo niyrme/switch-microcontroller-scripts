@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import json
 import logging
+import tempfile
 import time
 from abc import abstractmethod
 from collections.abc import Generator
@@ -413,18 +414,18 @@ class Script:
 		self.whileNotColor(LOADING_SCREEN_POS, Color.Black(), 0.5, lambda: self.press(Button.BUTTON_A))
 
 	def _sendTelegram(self, **kwargs) -> None:
-		print(1)
 		try:
 			telegram_send.send(**kwargs)
-			print(2)
 		except telegram.error.NetworkError as e:
 			logging.warning(f"telegram_send: connection failed: {e}")
-		print(3)
 
 	def sendMsg(self, msg: str) -> None:
 		logging.debug(f"send telegram message: '{msg}'")
 		self._sendTelegram(messages=(msg,))
 
 	def sendScreenshot(self, frame: Frame) -> None:
-		_, image = cv2.imencode(".png", frame.ndarray)
-		self._sendTelegram(images=(image,))
+		with tempfile.TemporaryDirectory() as tempDirName:
+			p = f"{tempDirName}/screenshot.png"
+			cv2.imwrite(p, frame.ndarray)
+			with open(p, "rb") as img:
+				self._sendTelegram(images=(img,))
