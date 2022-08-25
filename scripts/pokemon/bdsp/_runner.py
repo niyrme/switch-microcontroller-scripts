@@ -128,16 +128,13 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 							script.waitAndRender(3)
 					except KeyboardInterrupt:
 						cmd = input("continue? (y/n)")
-						if cmd.lower() in ("y", "yes"):
-							continue
-						else:
+						if cmd.lower() not in ("y", "yes"):
 							raise lib.ExecStop(shiny.encounter + 1)
 				else:
-					if sendNth >= 2 and currentEncounters % sendNth == 0:
+					if script.sendAllEncounters is False and sendNth >= 2 and currentEncounters % sendNth == 0:
 						logging.debug("send screenshot")
 						script.sendScreenshot(encounterFrame)
-
-					if script.sendAllEncounters is True:
+					elif script.sendAllEncounters is True:
 						logging.debug("send screenshot")
 						script.sendScreenshot(encounterFrame)
 				finally:
