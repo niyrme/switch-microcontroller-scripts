@@ -1,10 +1,9 @@
 import logging
 from typing import Optional
 
-import numpy
-
 from lib import Button
 from lib import Color
+from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib.pokemon.bdsp import BDSPScript
 
@@ -21,7 +20,7 @@ class Script(BDSPScript):
 	def getName(self) -> Optional[str]:
 		return "Arceus"
 
-	def main(self, e: int) -> tuple[int, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, Frame]:
 		self.resetGame()
 		self.awaitInGame()
 

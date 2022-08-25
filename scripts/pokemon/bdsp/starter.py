@@ -3,11 +3,10 @@ import time
 from typing import Any
 from typing import Optional
 
-import numpy
-
 import lib
 from lib import Button
 from lib import Color
+from lib import Frame
 from lib.pokemon import ExecShiny
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
@@ -44,7 +43,7 @@ class Script(BDSPScript):
 	def getName(self) -> Optional[str]:
 		self._starterName
 
-	def main(self, e: int) -> tuple[int, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, Frame]:
 		self.resetGame()
 		self.awaitInGame()
 

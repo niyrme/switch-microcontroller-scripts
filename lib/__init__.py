@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import json
 import logging
+import tempfile
 import time
 from abc import abstractmethod
 from collections.abc import Generator
@@ -81,6 +82,12 @@ class Color(NamedTuple):
 	def __str__(self) -> str:
 		return f"({self.r}, {self.g}, {self.b})"
 
+	def distance(self, other: Color) -> int:
+		return sum(
+			(c2 - c1) ** 2
+			for c1, c2 in zip(self.tpl, other.tpl)
+		)
+
 
 class Button(Enum):
 	EMPTY = "0"
@@ -147,6 +154,19 @@ def jsonGetDefault(data: dict[K, T], key: K, default: T) -> tuple[dict[K, T], T]
 		return (data | {key: default}, default)
 
 
+class Frame:
+	def __init__(self, frame: numpy.ndarray) -> None:
+		self._frame = frame
+
+	@property
+	def ndarray(self) -> numpy.ndarray:
+		return self._frame
+
+	def colorAt(self, pos: Pos) -> Color:
+		b, g, r = self._frame[pos.y][pos.x]
+		return Color(r, g, b)
+
+
 class Capture:
 	def __init__(self, *, width: int = 768, height: int = 480, fps: int = 30):
 		self._vidWidth = width
@@ -167,16 +187,13 @@ class Capture:
 	def vidHeight(self) -> int:
 		return self._vidHeight
 
-	def getFrame(self) -> numpy.ndarray:
+	def read(self) -> Frame:
 		_, frame = self.vid.read()
 
-		if cv2.waitKey(1) & 0xFF == ord("q"):
-			raise SystemExit(0)
-
-		return frame
+		return Frame(frame)
 
 	def getFrameRGB(self) -> numpy.ndarray:
-		return cv2.cvtColor(self.getFrame(), cv2.COLOR_BGR2RGB)
+		return cv2.cvtColor(self.read().ndarray, cv2.COLOR_BGR2RGB)
 
 	def __del__(self):
 		if self.vid and self.vid.isOpened():
@@ -231,10 +248,11 @@ class Script:
 	def main(self, e: int) -> Any:
 		raise NotImplementedError
 
-	def getframe(self) -> numpy.ndarray:
-		frame = self._cap.getFrame()
+	def getframe(self) -> Frame:
+		frame = self._cap.read()
+
 		if self.renderCapture is True:
-			cv2.imshow(self.windowName, frame)
+			cv2.imshow(self.windowName, frame.ndarray)
 
 		if cv2.waitKey(1) & 0xFF == ord("q"):
 			raise ExecStop
@@ -278,28 +296,24 @@ class Script:
 			self._ser.write(b".")
 			self.waitAndRender(0.4)
 
-	def nearColor(self, pixel: numpy.ndarray, expected: Color, distance: int = 75) -> bool:
-		d = sum(
-			(c2 - c1) ** 2
-			for c1, c2 in zip(pixel, reversed(expected.tpl))
-		)
-		return d < distance
+	def nearColor(self, current: Color, expected: Color, distance: int = 75) -> bool:
+		return current.distance(expected) <= distance
 
 	def awaitColor(self, pos: Pos, color: Color, timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
-		while not numpy.array_equal(frame[pos.y][pos.x], color.tpl):
+		while frame.colorAt(pos) != color:
 			if time.time() > tEnd:
 				raise ExecLock(
 					f"did not find color ({color}) at ({pos});"
-					f"color in last frame: {frame[pos.y][pos.x]}",
+					f"color in last frame: {frame.colorAt(pos)}",
 				)
 			frame = self.getframe()
 
 	def awaitNotColor(self, pos: Pos, color: Color, timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
-		while numpy.array_equal(frame[pos.y][pos.x], color.tpl):
+		while frame.colorAt(pos) == color:
 			if time.time() > tEnd:
 				raise ExecLock(f"did not find not color ({color}) at ({pos})")
 			frame = self.getframe()
@@ -311,22 +325,22 @@ class Script:
 	def awaitNearColor(self, pos: Pos, color: Color, distance: int = 30, timeout: float = 90) -> None:
 		tEnd = time.time() + timeout
 		frame = self.getframe()
-		while not self.nearColor(frame[pos.y][pos.x], color, distance):
+		while not self.nearColor(frame.colorAt(pos), color, distance):
 			if time.time() > tEnd:
 				raise ExecLock(
 					f"did not find near color ({color}) at ({pos}) (distance: {distance});"
-					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], color.tpl))})",
+					f"color in last frame: {frame.colorAt(pos)} (distance: {frame.colorAt(pos).distance(color)})",
 				)
 			frame = self.getframe()
 
 	def awaitNotNearColor(self, pos: Pos, color: Color, distance: int = 30, timeout: float = 90) -> None:
 		tEnd = time.time() + timeout
 		frame = self.getframe()
-		while self.nearColor(frame[pos.y][pos.x], color, distance):
+		while self.nearColor(frame.colorAt(pos), color, distance):
 			if time.time() > tEnd:
 				raise ExecLock(
 					f"did not find not near color ({color}) at ({pos}) (distance: {distance});"
-					f"color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], color.tpl))})",
+					f"color in last frame: {frame.colorAt(pos)} (distance: {frame.colorAt(pos).distance(color)})",
 				)
 			frame = self.getframe()
 
@@ -334,7 +348,7 @@ class Script:
 		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
-		while numpy.array_equal(frame[pos.y][pos.x], color.tpl):
+		while frame.colorAt(pos) == color.tpl:
 			t = time.time()
 			if t > tEnd:
 				fn()
@@ -342,7 +356,7 @@ class Script:
 			elif t > tStop:
 				raise ExecLock(
 					f"did not find color ({color}) at ({pos});"
-					f"color in last frame: {frame[pos.y][pos.x]}",
+					f"color in last frame: {frame.colorAt(pos)}",
 				)
 			frame = self.getframe()
 
@@ -350,7 +364,7 @@ class Script:
 		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
-		while not numpy.array_equal(frame[pos.y][pos.x], color.tpl):
+		while frame.colorAt(pos) != color.tpl:
 			t = time.time()
 			if t > tEnd:
 				fn()
@@ -363,7 +377,7 @@ class Script:
 		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
-		while self.nearColor(frame[pos.y][pos.x], color, distance):
+		while self.nearColor(frame.colorAt(pos), color, distance):
 			t = time.time()
 			if t > tEnd:
 				fn()
@@ -371,7 +385,7 @@ class Script:
 			elif t > tStop:
 				raise ExecLock(
 					f"did not find near color ({color}) at ({pos}) (distance: {distance});"
-					f" color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], color.tpl))})",
+					f" color in last frame: {frame.colorAt(pos)} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame.colorAt(pos), color.tpl))})",
 				)
 			frame = self.getframe()
 
@@ -379,7 +393,7 @@ class Script:
 		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
-		while not self.nearColor(frame[pos.y][pos.x], color, distance):
+		while not self.nearColor(frame.colorAt(pos), color, distance):
 			t = time.time()
 			if t > tEnd:
 				fn()
@@ -387,7 +401,7 @@ class Script:
 			elif t > tStop:
 				raise ExecLock(
 					f"did not find not near color ({color}) as ({pos}) (distance: {distance});"
-					f" color in last frame: {frame[pos.y][pos.x]} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame[pos.y][pos.x], color.tpl))})",
+					f" color in last frame: {frame.colorAt(pos)} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame.colorAt(pos), color.tpl))})",
 				)
 			frame = self.getframe()
 
@@ -409,10 +423,9 @@ class Script:
 		logging.debug(f"send telegram message: '{msg}'")
 		self._sendTelegram(messages=(msg,))
 
-	def sendImg(self, imgPath: str) -> None:
-		with open(imgPath, "rb") as img:
-			self._sendTelegram(images=(img,))
-
-	def sendScreenshot(self, frame: numpy.ndarray) -> None:
-		image = cv2.imencode(".png", frame)
-		self._sendTelegram(images=(image,))
+	def sendScreenshot(self, frame: Frame) -> None:
+		with tempfile.TemporaryDirectory() as tempDirName:
+			p = f"{tempDirName}/screenshot.png"
+			cv2.imwrite(p, frame.ndarray)
+			with open(p, "rb") as img:
+				self._sendTelegram(images=(img,))

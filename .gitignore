@@ -1,6 +1,5 @@
 /.idea
 /logs
 __pycache__
-config.json
+config.yaml
 encounters.json
-shinyGrind.json

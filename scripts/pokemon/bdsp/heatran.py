@@ -1,11 +1,10 @@
 import logging
 from typing import Optional
 
-import numpy
-
 from lib import Button
 from lib import Color
 from lib import ExecCrash
+from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import SHORT_DIALOG_POS
@@ -33,7 +32,7 @@ class Script(BDSPScript):
 		self.waitAndRender(1)
 
 		frame = self.getframe()
-		if numpy.array_equal(frame[LOADING_SCREEN_POS.y][LOADING_SCREEN_POS.x], (41, 41, 41)):
+		if frame.colorAt(LOADING_SCREEN_POS) == Color(41, 41, 41):
 			raise ExecCrash
 
 		self.press(Button.BUTTON_A)
@@ -45,7 +44,7 @@ class Script(BDSPScript):
 		logging.debug("in game")
 		self.waitAndRender(1)
 
-	def main(self, e: int) -> tuple[int, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, Frame]:
 		self.resetGame()
 		self.awaitInGame()
 
