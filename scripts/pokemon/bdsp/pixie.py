@@ -1,7 +1,6 @@
-import numpy
-
 from lib import Button
 from lib import Color
+from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib.pokemon.bdsp import BDSPScript
 
@@ -15,7 +14,7 @@ class Script(BDSPScript):
 	def target(self) -> str:
 		return "Azelf/Uxie"
 
-	def main(self, e: int) -> tuple[int, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, Frame]:
 		self.resetGame()
 		self.awaitInGame()
 

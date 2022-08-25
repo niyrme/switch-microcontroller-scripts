@@ -4,10 +4,9 @@ import time
 from itertools import cycle
 from typing import Literal
 
-import numpy
-
 from lib import Button
 from lib import Color
+from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import OWN_POKEMON_POS
@@ -49,14 +48,11 @@ class Script(BDSPScript):
 	def target(self) -> str:
 		return "Random"
 
-	def main(self, e: int) -> tuple[int, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, Frame]:
 		tEnd = time.time()
 		frame = self.getframe()
 
-		while not numpy.array_equal(
-			frame[LOADING_SCREEN_POS.y][LOADING_SCREEN_POS.x],
-			Color.White().tpl,
-		):
+		while frame.colorAt(LOADING_SCREEN_POS) != Color.White():
 			if time.time() > tEnd:
 				self._ser.write(next(self._directions).encode())
 				tEnd = time.time() + self._delay
