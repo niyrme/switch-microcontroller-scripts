@@ -10,7 +10,6 @@ from typing import Any
 from typing import Optional
 
 import cv2
-import numpy
 import pytesseract
 import serial
 
@@ -22,6 +21,7 @@ from lib import Color
 from lib import Config
 from lib import ExecCrash
 from lib import ExecLock
+from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib import Pos
 from lib import Script
@@ -37,7 +37,7 @@ langsPath = pathlib.Path(__file__).parent / "langs"
 
 class BDSPScript(Script):
 	@abstractmethod
-	def main(self, e: int) -> tuple[int, numpy.ndarray]:
+	def main(self, e: int) -> tuple[int, Frame]:
 		raise NotImplementedError
 
 	@staticmethod
@@ -92,7 +92,7 @@ class BDSPScript(Script):
 
 		return p
 
-	def checkShinyDialog(self, e: int, delay: float = 2) -> numpy.ndarray:
+	def checkShinyDialog(self, e: int, delay: float = 2) -> Frame:
 		logging.debug("waiting for dialog")
 		self.awaitColor(ENCOUNTER_DIALOG_POS, Color.White())
 		print(f"dialog start{' ' * 30}\r", end="")
@@ -130,7 +130,7 @@ class BDSPScript(Script):
 		self.waitAndRender(1)
 
 		frame = self.getframe()
-		if numpy.array_equal(frame[LOADING_SCREEN_POS.y][LOADING_SCREEN_POS.x], (41, 41, 41)):
+		if frame.colorAt(LOADING_SCREEN_POS) == Color(41, 41, 41):
 			raise ExecCrash
 
 		self.press(Button.BUTTON_A)
@@ -144,7 +144,7 @@ class BDSPScript(Script):
 		logging.debug("in game")
 		self.waitAndRender(1)
 
-	def resetRoamer(self, e: int) -> numpy.ndarray:
+	def resetRoamer(self, e: int) -> Frame:
 		logging.debug("reset roamer")
 		print("travel to Jubilife City")
 		self.waitAndRender(0.5)
@@ -221,12 +221,12 @@ class BDSPScript(Script):
 				logging.debug("go for encounter")
 				tEnd = time.time() + 2
 				frame = self.getframe()
-				while not numpy.array_equal(frame[LOADING_SCREEN_POS.y][LOADING_SCREEN_POS.x], Color.White().tpl):
+				while frame.colorAt(LOADING_SCREEN_POS) != Color.White():
 					if time.time() > tEnd:
 						self._ser.write(next(_directions).encode())
 						tEnd = time.time() + 0.5
 
-					if numpy.array_equal(frame[SHORT_DIALOG_POS.y][SHORT_DIALOG_POS.x], Color.White()):
+					if frame.colorAt(SHORT_DIALOG_POS) == Color.White():
 						self._ser.write(b"0")
 						logging.debug("re-apply repel")
 						# repel used up
@@ -268,7 +268,7 @@ class BDSPScript(Script):
 		self.waitAndRender(1)
 
 	def getName(self) -> Optional[str]:
-		frame = cv2.cvtColor(self.getframe(), cv2.COLOR_BGR2GRAY)
+		frame = cv2.cvtColor(self.getframe().ndarray, cv2.COLOR_BGR2GRAY)
 		crop = frame[30:54, 533:641]
 		text = pytesseract.image_to_string(crop)
 

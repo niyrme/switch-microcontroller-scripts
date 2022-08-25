@@ -1,6 +1,6 @@
 import logging
 
-import numpy
+from lib import Frame
 
 
 class ExecShiny(Exception):
@@ -8,7 +8,7 @@ class ExecShiny(Exception):
 	Found a shiny pokemon
 	"""
 
-	def __init__(self, encounter: int, encounterFrame: numpy.ndarray, *args: object) -> None:
+	def __init__(self, encounter: int, encounterFrame: Frame, *args: object) -> None:
 		super().__init__(*args)
 		self.encounter = encounter
 		self.encounterFrame = encounterFrame
