@@ -1,12 +1,12 @@
-- serialPort: COM0
-- renderCapture: true
+serialPort: COM0
+renderCapture: true
 
-- pokemon:
-  - lang: en
-  - bdsp:
-    - notifyShiny: false
-    - sendAllEncounters: false
-    - showBnp: false
-    - showLastDelay: false
-    - showLastRunDuration: false
-    - showMaxDelay: false
+pokemon:
+  lang: en
+  notifyShiny: false
+  bdsp:
+    sendAllEncounters: false
+    showBnp: false
+    showLastDelay: false
+    showLastRunDuration: false
+    showMaxDelay: false
