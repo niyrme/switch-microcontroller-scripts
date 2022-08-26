@@ -47,10 +47,6 @@ def main() -> int:
 
 	args = vars(parser.parse_args())
 
-	import pprint
-	pprint.pp(args)
-	return 0
-
 	logging.root.setLevel(min(args[k] for k in ("debug", "shinyDelay")))
 
 	logging.debug(f"setting log-level to {logging.getLevelName(logging.root.level)}")
