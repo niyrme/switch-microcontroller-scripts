@@ -2,7 +2,7 @@
 
 # switch microcontroller scripts
 
-A repo containing my scripts running on the base of [this](https://github.com/asottile/switch-microcontroller)
+A repo containing my scripts running on the base of [this repository](https://github.com/asottile/switch-microcontroller)
 
 ## Requirements
 - Everything from the repo linked above (buzzer is optional)
