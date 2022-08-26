@@ -3,14 +3,13 @@ import time
 from typing import Any
 from typing import Optional
 
-import lib
 from lib import Button
 from lib import Color
 from lib import Frame
 from lib import RequirementsAction
 from lib.pokemon import ExecShiny
 from lib.pokemon.bdsp import BDSPScript
-from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
+from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS_2
 from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 
@@ -47,6 +46,7 @@ class Script(BDSPScript):
 		self.press(Button.L_UP, 0.5)
 		self.waitAndRender(1)
 
+		# TODO replace with self.whileColor
 		self.pressN(Button.BUTTON_A, 12, 2, render=True)
 		self.pressN(Button.BUTTON_A, 4, 5.5, render=True)
 		self.pressN(Button.BUTTON_A, 3, 2, render=True)
@@ -67,24 +67,22 @@ class Script(BDSPScript):
 		self.waitAndRender(0.5)
 		self.press(Button.BUTTON_A)
 
-		self.awaitFlash(ENCOUNTER_DIALOG_POS, Color.White())
+		self.awaitFlash(ENCOUNTER_DIALOG_POS_2, Color.White())
 
 		self.waitAndRender(5)
 
-		self.awaitFlash(ENCOUNTER_DIALOG_POS, Color.White())
-		self.awaitFlash(ENCOUNTER_DIALOG_POS, Color.White())
+		self.awaitFlash(ENCOUNTER_DIALOG_POS_2, Color.White())
+		self.awaitFlash(ENCOUNTER_DIALOG_POS_2, Color.White())
 
 		encounterFrame = self.getframe()
 
 		t0 = time.time()
-		crash = self.awaitColor(OWN_POKEMON_POS, Color.White())
+		self.awaitColor(OWN_POKEMON_POS, Color.White())
 		diff = time.time() - t0
 
 		print(f"dialog delay: {diff:.3f}s")
 
 		if 15 > diff > 2:
 			raise ExecShiny(e + 1, encounterFrame)
-		elif diff >= 89 or crash is True:
-			raise lib.ExecLock
 		else:
 			return (e + 1, encounterFrame)

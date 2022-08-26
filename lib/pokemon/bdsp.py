@@ -24,7 +24,8 @@ from lib import LOADING_SCREEN_POS
 from lib import Pos
 from lib.pokemon import PokemonScript
 
-ENCOUNTER_DIALOG_POS = Pos(670, 430)
+ENCOUNTER_DIALOG_POS_1 = Pos(55, 400)
+ENCOUNTER_DIALOG_POS_2 = Pos(670, 430)
 SHORT_DIALOG_POS = Pos(560, 455)
 OWN_POKEMON_POS = Pos(5, 425)
 ROAMER_MAP_POS = Pos(340, 280)
@@ -69,15 +70,24 @@ class BDSPScript(PokemonScript):
 
 	def checkShinyDialog(self, e: int, delay: float = 2) -> Frame:
 		logging.debug("waiting for dialog")
-		self.awaitColor(ENCOUNTER_DIALOG_POS, Color.White())
+		self.awaitColors((
+			(ENCOUNTER_DIALOG_POS_1, Color.White()),
+			(ENCOUNTER_DIALOG_POS_2, Color.White()),
+		))
 		print(f"dialog start{' ' * 30}\r", end="")
 
-		self.awaitNotColor(ENCOUNTER_DIALOG_POS, Color.White())
+		self.awaitNotColors((
+			(ENCOUNTER_DIALOG_POS_1, Color.White()),
+			(ENCOUNTER_DIALOG_POS_2, Color.White()),
+		))
 		print(f"dialog end{' ' * 30}\r", end="")
 		t0 = time.time()
 
 		encounterFrame = self.getframe()
-		self.awaitColor(ENCOUNTER_DIALOG_POS, Color.White())
+		self.awaitColors((
+			(ENCOUNTER_DIALOG_POS_1, Color.White()),
+			(ENCOUNTER_DIALOG_POS_2, Color.White()),
+		))
 
 		diff = round(time.time() - t0, 3)
 		self._lastDelay = diff

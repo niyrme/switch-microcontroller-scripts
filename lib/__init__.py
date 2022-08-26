@@ -311,6 +311,24 @@ class Script:
 				raise ExecLock(f"did not find not color ({color}) at ({pos})")
 			frame = self.getframe()
 
+	def awaitColors(self, colors: tuple[tuple[Pos, Color], ...], timeout: float = 90) -> None:
+		frame = self.getframe()
+		tEnd = time.time() + timeout
+
+		while not all(map(lambda c: frame.colorAt(c[0]) == c[1], colors)):
+			if time.time() > tEnd:
+				raise ExecLock
+			frame = self.getframe()
+
+	def awaitNotColors(self, colors: tuple[tuple[Pos, Color], ...], timeout: float = 90) -> None:
+		frame = self.getframe()
+		tEnd = time.time() + timeout
+
+		while all(map(lambda c: frame.colorAt(c[0]) == c[1], colors)):
+			if time.time() > tEnd:
+				raise ExecLock
+			frame = self.getframe()
+
 	def awaitFlash(self, pos: Pos, color: Color, timeout: float = 90) -> None:
 		self.awaitColor(pos, color, timeout)
 		self.awaitNotColor(pos, color, timeout)
