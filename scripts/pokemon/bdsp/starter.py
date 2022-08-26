@@ -7,23 +7,20 @@ import lib
 from lib import Button
 from lib import Color
 from lib import Frame
+from lib import RequirementsAction
 from lib.pokemon import ExecShiny
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS
 from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 
+_Requirements: tuple[str, ...] = ("Stand in front of transition into Lake Verity",)
+Parser = argparse.ArgumentParser(add_help=False)
+Parser.add_argument("-r", "--requriements", action=RequirementsAction, help="print out the requirements for a script", requirements=_Requirements)
+Parser.add_argument("starter", type=int, choices=(1, 2, 3), help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
+
+
 class Script(BDSPScript):
-	@staticmethod
-	def requirements() -> tuple[str, ...]:
-		return ("Stand in front of transition into Lake Verity",)
-
-	@staticmethod
-	def parser(*args, **kwargs) -> argparse.ArgumentParser:
-		p = super(BDSPScript, BDSPScript).parser(*args, **kwargs, description="reset starter")
-		p.add_argument("starter", type=int, choices={1, 2, 3}, help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
-		return p
-
 	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 

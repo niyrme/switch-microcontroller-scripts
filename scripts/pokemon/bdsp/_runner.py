@@ -1,4 +1,7 @@
+import argparse
+import importlib
 import logging
+import pathlib
 import time
 from datetime import datetime
 from datetime import timedelta
@@ -13,7 +16,35 @@ from lib import Button
 from lib import Capture
 from lib import Config
 from lib.pokemon import ExecShiny
+from lib.pokemon import Langs
 from lib.pokemon.bdsp import BDSPScript
+
+
+_scripsPath = pathlib.Path(__file__).parent
+_scripts = tuple(
+	map(
+		lambda s: s.name[:-3],
+		filter(
+			lambda s: s.is_file() and not s.name.startswith("_") and s.name.endswith(".py"),
+			_scripsPath.iterdir(),
+		),
+	),
+)
+
+
+Parser = argparse.ArgumentParser(add_help=False)
+Parser.add_argument("-l", "--lang", action="store", choices=Langs, default=None, dest="tempLang", help="override lang for this run only (instead of using the one from config)")
+
+_ScriptsParser = Parser.add_subparsers()
+for script in _scripts:
+	try:
+		_p = importlib.import_module(f"scripts.pokemon.bdsp.{script}").Parser
+	except ModuleNotFoundError:
+		logging.warning(f"Failed to import {script}")
+	except AttributeError:
+		logging.warning(f"Failed to get Parser from {script}")
+	else:
+		_ScriptsParser.add_parser(script, parents=(_p,))
 
 
 def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: int) -> int:

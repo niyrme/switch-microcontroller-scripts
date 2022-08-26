@@ -8,25 +8,22 @@ from lib import Button
 from lib import Color
 from lib import Frame
 from lib import LOADING_SCREEN_POS
+from lib import RequirementsAction
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import OWN_POKEMON_POS
 
 
+_Requirements: tuple[str, ...] = (
+	"Stand in a patch of grass with enough tiles (could take some time otherwise)",
+	"No repel active",
+)
+Parser = argparse.ArgumentParser(add_help=False)
+Parser.add_argument("-r", "--requriements", action=RequirementsAction, help="print out the requirements for a script", requirements=_Requirements)
+Parser.add_argument("direction", type=str, choices=("h", "v"), help="direction to run in {(h)orizontal, (v)ertical} direction")
+Parser.add_argument("delay", type=float, help="delay betweeen changing direction")
+
+
 class Script(BDSPScript):
-	@staticmethod
-	def requirements() -> tuple[str, ...]:
-		return (
-			"Stand in a patch of grass with enough tiles (could take some time otherwise)",
-			"No repel active",
-		)
-
-	@staticmethod
-	def parser(*args, **kwargs) -> argparse.ArgumentParser:
-		p = super(__class__, __class__).parser(*args, **kwargs, description="reset random encounters")
-		p.add_argument("direction", type=str, choices={"h", "v"}, help="direction to run in {(h)orizontal, (v)ertical} direction")
-		p.add_argument("delay", type=float, help="delay betweeen changing direction")
-		return p
-
 	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 

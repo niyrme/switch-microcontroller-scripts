@@ -1,3 +1,4 @@
+import argparse
 import importlib
 import logging
 from typing import Any
@@ -8,13 +9,21 @@ import telegram
 import telegram_send
 
 import lib
-from lib.pokemon.bdsp import BDSPScript
+from .bdsp._runner import Parser as ParserBDSP
+from lib.pokemon import Langs
+from lib.pokemon import LOG_DELAY
+from lib.pokemon import PokemonScript
 
 
-PokemonScript = Type[BDSPScript]
+Parser = argparse.ArgumentParser(add_help=False)
+Parser.add_argument("-l", "--lang", action="store", choices=Langs, default=None, dest="tempLang", help="override lang for this run only (instead of using the one from config)")
+Parser.add_argument("-s", "--shiny-dialog-delay", action="store_const", const=LOG_DELAY, default=logging.INFO, dest="shinyDelay", help="log dialog delay to file")
+Parser.add_argument("-e", "--encounter-file", type=str, dest="encounterFile", default="encounters.json", help="file in which encounters are stored (defualt: %(default)s)")
+Parser.add_argument("-n", "--send-nth-encounter", type=int, dest="sendNth", action="store", default=0, help="send every Nth encounter (must be 2 or higher; otherwise ignored)")
+Parser.add_subparsers(dest="mod").add_parser("bdsp", parents=(ParserBDSP,))
 
 
-def _run(scriptClass: PokemonScript, args: dict[str, Any], encountersStart: int) -> int:
+def _run(scriptClass: Type[PokemonScript], args: dict[str, Any], encountersStart: int) -> int:
 	modName = args.pop("mod")
 
 	runnerPath = f"scripts.pokemon.{modName}._runner"
@@ -28,7 +37,7 @@ def _run(scriptClass: PokemonScript, args: dict[str, Any], encountersStart: int)
 	return encountersStart
 
 
-def run(args: dict[str, Any], modules: dict[str, PokemonScript]) -> int:
+def run(args: dict[str, Any], modules: dict[str, Type[PokemonScript]]) -> int:
 	modName: str = args["mod"]
 	scriptName: str = args["script"]
 
@@ -63,9 +72,8 @@ def run(args: dict[str, Any], modules: dict[str, PokemonScript]) -> int:
 			logging.error(f"telegram_send: connection failed {ne}")
 		raise
 	finally:
-		if script.storeEncounters is True:
-			lib.dumpJson(encounterFile, jsn | {"pokemon": gameJson | {modName: modJson | {scriptName: encounters}}})
-			logging.info(f"saved encounters: {encounters}")
+		lib.dumpJson(encounterFile, jsn | {"pokemon": gameJson | {modName: modJson | {scriptName: encounters}}})
+		logging.info(f"saved encounters: {encounters}")
 
 		cv2.destroyAllWindows()
 

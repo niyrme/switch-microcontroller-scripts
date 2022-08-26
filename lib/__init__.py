@@ -217,13 +217,6 @@ Config = dict[str, Any]
 
 
 class Script:
-	storeEncounters: bool = True
-
-	@staticmethod
-	def parser(*args, **kwargs) -> argparse.ArgumentParser:
-		parser = argparse.ArgumentParser(*args, **kwargs, add_help=False)
-		return parser
-
 	@staticmethod
 	@abstractmethod
 	def requirements() -> tuple[str, ...]:

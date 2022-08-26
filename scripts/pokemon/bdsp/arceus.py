@@ -1,3 +1,4 @@
+import argparse
 import logging
 from typing import Optional
 
@@ -5,14 +6,16 @@ from lib import Button
 from lib import Color
 from lib import Frame
 from lib import LOADING_SCREEN_POS
+from lib import RequirementsAction
 from lib.pokemon.bdsp import BDSPScript
 
 
-class Script(BDSPScript):
-	@staticmethod
-	def requirements() -> tuple[str, ...]:
-		return ("Stand at the last step before the platform",)
+_Requirements: tuple[str, ...] = ("Stand at the last step before the platform",)
+Parser = argparse.ArgumentParser(add_help=False)
+Parser.add_argument("-r", "--requriements", action=RequirementsAction, help="print out the requirements for a script", requirements=_Requirements)
 
+
+class Script(BDSPScript):
 	@property
 	def target(self) -> str:
 		return "Arceus"

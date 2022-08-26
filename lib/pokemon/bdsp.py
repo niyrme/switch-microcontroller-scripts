@@ -1,7 +1,5 @@
-import argparse
 import difflib
 import logging
-import pathlib
 import sys
 import time
 from abc import abstractmethod
@@ -24,7 +22,7 @@ from lib import ExecLock
 from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib import Pos
-from lib import Script
+from lib.pokemon import PokemonScript
 
 ENCOUNTER_DIALOG_POS = Pos(670, 430)
 SHORT_DIALOG_POS = Pos(560, 455)
@@ -32,10 +30,8 @@ OWN_POKEMON_POS = Pos(5, 425)
 ROAMER_MAP_POS = Pos(340, 280)
 ROAMER_MAP_COLOR = Color(32, 60, 28)
 
-langsPath = pathlib.Path(__file__).parent / "langs"
 
-
-class BDSPScript(Script):
+class BDSPScript(PokemonScript):
 	@abstractmethod
 	def main(self, e: int) -> tuple[int, Frame]:
 		raise NotImplementedError
@@ -48,28 +44,17 @@ class BDSPScript(Script):
 	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:
 		super().__init__(ser, cap, config, **kwargs)
 
-		tempLang: Optional[str] = kwargs.pop("tempLang", None)
-
-		self.configPokemon: dict[str, Any] = config.pop("pokemon")
 		self.configBDSP: dict[str, Any] = self.configPokemon.pop("bdsp")
 
-		self.sendAllEncounters = self.configBDSP.pop("sendAllEncounters", False)
-		self.showLastRunDuration = self.configBDSP.pop("showLastRunDuration", False)
-		self.notifyShiny = self.configBDSP.pop("notifyShiny", False)
-		self.showBnp = self.configBDSP.pop("showBnp", False)
+		self.sendAllEncounters: bool = self.configBDSP.pop("sendAllEncounters", False)
+		self.showLastRunDuration: bool = self.configBDSP.pop("showLastRunDuration", False)
+		self.showBnp: bool = self.configBDSP.pop("showBnp", False)
 
 		self._showMaxDelay: bool = self.configBDSP.pop("showMaxDelay", False)
 		self._maxDelay: float = 0
 
 		self._showLastDelay: bool = self.configBDSP.pop("showLastDelay", False)
 		self._lastDelay: float = 0
-
-		lang: str = tempLang or self.configPokemon.pop("lang")
-
-		logging.debug(f"language used for text recognition: {lang}")
-
-		with open(langsPath / (lang + ".txt")) as f:
-			self._names = set(f.readlines())
 
 	@property
 	def extraStats(self) -> tuple[tuple[str, Any], ...]:
@@ -81,16 +66,6 @@ class BDSPScript(Script):
 	@property
 	def target(self) -> str:
 		return "Unknown"
-
-	@staticmethod
-	def parser(*args, **kwargs) -> argparse.ArgumentParser:
-		langs = (lang.name[:-4] for lang in langsPath.iterdir())
-
-		# IDK what I'm doing here but it works ¯\_(ツ)_/¯
-		p = super(__class__, __class__).parser(*args, **kwargs)
-		p.add_argument("-l", "--lang", action="store", choices=langs, default=None, dest="tempLang", help="override lang for this run only (instead of using the one from config)")
-
-		return p
 
 	def checkShinyDialog(self, e: int, delay: float = 2) -> Frame:
 		logging.debug("waiting for dialog")
