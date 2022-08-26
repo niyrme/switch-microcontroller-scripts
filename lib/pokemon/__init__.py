@@ -40,7 +40,7 @@ class PokemonScript(Script):
 	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:
 		super().__init__(ser, cap, config, **kwargs)
 
-		self.configPokemon: dict[str, Any] = kwargs.pop("pokemon")
+		self.configPokemon: dict[str, Any] = config.pop("pokemon")
 		self.notifyShiny: bool = self.configPokemon.pop("notifyShiny", False)
 
 		tempLang: Optional[str] = kwargs.pop("tempLang", None)
