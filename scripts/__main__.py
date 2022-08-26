@@ -4,9 +4,6 @@ import logging
 import os
 import pathlib
 from datetime import datetime
-from typing import Type
-
-from lib import Script
 
 
 def main() -> int:
@@ -16,11 +13,10 @@ def main() -> int:
 
 	path = pathlib.Path(__file__)
 
-	gameScripts: dict[str, Type[Script]] = {}
 	gamesParsers = None
 
 	for _game in filter(
-		lambda p: p.is_dir(),
+		lambda p: p.is_dir() and not p.name.startswith("_"),
 		path.parent.iterdir(),
 	):
 		_gameName = _game.name
@@ -37,12 +33,6 @@ def main() -> int:
 			gamesParsers.add_parser(_gameName, parents=(game.Parser,))
 		except AttributeError:
 			logging.warning(f"Failed to get Parser from {_gamePath}")
-			continue
-
-		try:
-			gameScripts[_gameName] = game.Script
-		except AttributeError:
-			logging.warning(f"Failed to get Script from {_gamePath}")
 			continue
 
 	args = vars(parser.parse_args())
@@ -73,7 +63,7 @@ def main() -> int:
 	runnerPath = f"scripts.{gameName}._runner"
 
 	try:
-		return importlib.import_module(runnerPath).run(args, gameScripts)
+		return importlib.import_module(runnerPath).run(args)
 	except ModuleNotFoundError:
 		logging.critical(f"Failed to get runner module from {runnerPath}")
 		return 1

@@ -37,7 +37,7 @@ def _run(scriptClass: Type[PokemonScript], args: dict[str, Any], encountersStart
 	return encountersStart
 
 
-def run(args: dict[str, Any], modules: dict[str, Type[PokemonScript]]) -> int:
+def run(args: dict[str, Any]) -> int:
 	modName: str = args["mod"]
 	scriptName: str = args["script"]
 
@@ -47,7 +47,10 @@ def run(args: dict[str, Any], modules: dict[str, Type[PokemonScript]]) -> int:
 	modulePath = f"scripts.pokemon.{modName}.{scriptName}"
 
 	try:
-		script = modules[modulePath]
+		script = importlib.import_module(modulePath).Script
+	except ModuleNotFoundError as e:
+		logging.critical(f"failed to import {modulePath}: {e}")
+		return 1
 	except KeyError:
 		logging.critical(f"failed to get Script from {modulePath}")
 		return 1

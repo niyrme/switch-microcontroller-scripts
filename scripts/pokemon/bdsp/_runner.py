@@ -35,7 +35,7 @@ _scripts = tuple(
 Parser = argparse.ArgumentParser(add_help=False)
 Parser.add_argument("-l", "--lang", action="store", choices=Langs, default=None, dest="tempLang", help="override lang for this run only (instead of using the one from config)")
 
-_ScriptsParser = Parser.add_subparsers()
+_ScriptsParser = Parser.add_subparsers(dest="script")
 for script in _scripts:
 	try:
 		_p = importlib.import_module(f"scripts.pokemon.bdsp.{script}").Parser
