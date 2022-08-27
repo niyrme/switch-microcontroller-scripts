@@ -93,13 +93,13 @@ class BDSPScript(PokemonScript):
 		self._lastDelay = diff
 		self._maxDelay = max(self._maxDelay, diff)
 
-		logging.log(LOG_DELAY, f"dialog delay: {diff}")
-		print(f"dialog delay: {diff}s{' ' * 30}")
+		logging.log(LOG_DELAY, f"dialog delay: {diff:.3f}s")
+		print(f"dialog delay: {diff}s")
 
 		self.waitAndRender(0.5)
 
 		if delay + 10 > diff > delay:
-			raise ExecShiny(e, encounterFrame)
+			raise ExecShiny(e + 1, encounterFrame)
 		elif diff >= 89:
 			raise ExecLock("checking shiny dialog timed out")
 		else:
