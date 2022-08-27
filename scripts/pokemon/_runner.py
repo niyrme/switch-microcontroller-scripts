@@ -20,6 +20,7 @@ Parser.add_argument("-l", "--lang", action="store", choices=Langs, default=None,
 Parser.add_argument("-s", "--shiny-dialog-delay", action="store_const", const=LOG_DELAY, default=logging.INFO, dest="shinyDelay", help="log dialog delay to file")
 Parser.add_argument("-e", "--encounter-file", type=str, dest="encounterFile", default="encounters.json", help="file in which encounters are stored (defualt: %(default)s)")
 Parser.add_argument("-n", "--send-nth-encounter", type=int, dest="sendNth", action="store", default=0, help="send every Nth encounter (must be 2 or higher; otherwise ignored)")
+Parser.add_argument("-S", "--stop-at", type=int, dest="stopAt", action="store", metavar="STOP", default=None, help="reset until encounters reach {%(metavar)s}; does nothing if set below current encounters (takes priority over --run-n-times)")
 Parser.add_subparsers(dest="mod").add_parser("bdsp", parents=(ParserBDSP,))
 
 

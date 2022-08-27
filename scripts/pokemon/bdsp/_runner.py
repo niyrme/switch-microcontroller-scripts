@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
+from typing import Optional
 from typing import Type
 
 import serial
@@ -48,12 +49,18 @@ for script in _scripts:
 
 
 def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: int) -> int:
+	logging.info(f"start encounters: {encountersStart}")
 	with open(args.pop("configFile"), "r") as f:
 		cfg: Config = yaml.safe_load(f)
 
 	sendNth: int = args.pop("sendNth")
 
-	logging.info(f"start encounters: {encountersStart}")
+	stopAt: Optional[int] = args.pop("stopAt")
+	if stopAt is not None:
+		if stopAt <= encountersStart:
+			stopAt = None
+		else:
+			logging.info(f"running until encounters reach {stopAt}")
 
 	with serial.Serial(cfg.pop("serialPort", "COM0"), 9600) as ser, lib.shh(ser):
 		logging.info("setting up cv2. This may take a while...")
@@ -90,6 +97,8 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 					("Encounters", f"{currentEncounters:>03}/{encounters:>05}"),
 					("Crashes", crashes),
 				]
+				if stopAt is not None:
+					stats.append(("Stop at", stopAt))
 				if script.showLastRunDuration is True:
 					stats.append(("Last run duration", timedelta(days=runDuration.days, seconds=runDuration.seconds)))
 				if script.showBnp is True:
@@ -170,9 +179,14 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 						script.sendScreenshot(encounterFrame)
 				finally:
 					currentEncounters += 1
+					if stopAt is not None and encounters >= stopAt:
+						logging.info(f"reached target of {stopAt} encounters")
+						logging.info("stoppping script")
+						break
 		except lib.ExecStop as e:
 			if e.encounters is not None:
 				encounters = e.encounters
+			logging.info("script stopped")
 		except (KeyboardInterrupt, EOFError):
 			logging.info("script stopped")
 		except Exception as e:
