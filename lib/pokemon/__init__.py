@@ -7,7 +7,6 @@ from typing import Optional
 import serial
 
 from lib import Capture
-from lib import Config
 from lib import Frame
 from lib import Script
 
@@ -37,7 +36,7 @@ class PokemonScript(Script):
 	def requirements() -> tuple[str, ...]:
 		raise NotImplementedError
 
-	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:
+	def __init__(self, ser: serial.Serial, cap: Capture, config: dict[str, Any], **kwargs) -> None:
 		super().__init__(ser, cap, config, **kwargs)
 
 		self.configPokemon: dict[str, Any] = config.pop("pokemon")
@@ -48,10 +47,14 @@ class PokemonScript(Script):
 
 		with open(f"{NamesPath}/{lang}.txt", "r") as f:
 			self._names = set(f.readlines())
-		logging.debug(f"language used for text recognition: {lang}")
+		self.logDebug(f"language used for text recognition: {lang}")
+
+	@property
+	@abstractmethod
+	def target(self) -> str:
+		raise NotImplementedError
 
 
 LOG_DELAY = logging.INFO - 1
 
-logging._levelToName.update({LOG_DELAY: "DELAY"})
-logging._nameToLevel.update({"DELAY": LOG_DELAY})
+logging.addLevelName(LOG_DELAY, "DELAY")

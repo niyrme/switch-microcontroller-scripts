@@ -16,7 +16,6 @@ from . import LOG_DELAY
 from lib import Button
 from lib import Capture
 from lib import Color
-from lib import Config
 from lib import ExecCrash
 from lib import ExecLock
 from lib import Frame
@@ -24,12 +23,14 @@ from lib import LOADING_SCREEN_POS
 from lib import Pos
 from lib.pokemon import PokemonScript
 
+
 ENCOUNTER_DIALOG_POS_1 = Pos(55, 400)
 ENCOUNTER_DIALOG_POS_2 = Pos(670, 430)
-SHORT_DIALOG_POS = Pos(560, 455)
 OWN_POKEMON_POS = Pos(5, 425)
-ROAMER_MAP_POS = Pos(340, 280)
 ROAMER_MAP_COLOR = Color(32, 60, 28)
+ROAMER_MAP_POS = Pos(340, 280)
+SHORT_DIALOG_POS_1 = Pos(154, 400)
+SHORT_DIALOG_POS_2 = Pos(560, 455)
 
 
 class BDSPScript(PokemonScript):
@@ -42,7 +43,7 @@ class BDSPScript(PokemonScript):
 	def requirements() -> tuple[str, ...]:
 		raise NotImplementedError
 
-	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:
+	def __init__(self, ser: serial.Serial, cap: Capture, config: dict[str, Any], **kwargs) -> None:
 		super().__init__(ser, cap, config, **kwargs)
 
 		self.configBDSP: dict[str, Any] = self.configPokemon.pop("bdsp")
@@ -60,16 +61,18 @@ class BDSPScript(PokemonScript):
 	@property
 	def extraStats(self) -> tuple[tuple[str, Any], ...]:
 		s = []
-		if self._showLastDelay is True: s.append(("Last delay", self._lastDelay))
-		if self._showMaxDelay is True: s.append(("Max delay", self._maxDelay))
+		if self._showLastDelay is True: s.append(("Last delay", f"{self._lastDelay}s"))
+		if self._showMaxDelay is True: s.append(("Max delay", f"{self._maxDelay}s"))
 		return super().extraStats + tuple(s)
 
 	@property
+	@abstractmethod
 	def target(self) -> str:
-		return "Unknown"
+		raise NotImplementedError
 
 	def checkShinyDialog(self, e: int, delay: float = 2) -> Frame:
-		logging.debug("waiting for dialog")
+		print("waiting for dialog")
+		self.logDebug("waiting for dialog")
 		self.awaitColors((
 			(ENCOUNTER_DIALOG_POS_1, Color.White()),
 			(ENCOUNTER_DIALOG_POS_2, Color.White()),
@@ -93,7 +96,7 @@ class BDSPScript(PokemonScript):
 		self._lastDelay = diff
 		self._maxDelay = max(self._maxDelay, diff)
 
-		logging.log(LOG_DELAY, f"dialog delay: {diff:.3f}s")
+		self.log(LOG_DELAY, f"dialog delay: {diff:.3f}s")
 		print(f"dialog delay: {diff}s")
 
 		self.waitAndRender(0.5)
@@ -107,10 +110,10 @@ class BDSPScript(PokemonScript):
 
 	def awaitInGame(self) -> None:
 		self.awaitColor(LOADING_SCREEN_POS, Color.Black())
-		logging.debug("startup screen")
+		self.logDebug("startup screen")
 
 		self.whileColor(LOADING_SCREEN_POS, Color.Black(), 0.5, lambda: self.press(Button.BUTTON_A))
-		logging.debug("after startup")
+		self.logDebug("after startup")
 
 		self.waitAndRender(1)
 
@@ -119,18 +122,18 @@ class BDSPScript(PokemonScript):
 			raise ExecCrash
 
 		self.press(Button.BUTTON_A)
-		self.waitAndRender(3)
+		self.waitAndRender(2)
 
 		# loading screen to game
 		self.awaitColor(LOADING_SCREEN_POS, Color.Black())
-		logging.debug("loading screen")
+		self.logDebug("loading screen")
 		self.awaitNotColor(LOADING_SCREEN_POS, Color.Black())
 
-		logging.debug("in game")
+		self.logDebug("in game")
 		self.waitAndRender(1)
 
 	def resetRoamer(self, e: int) -> Frame:
-		logging.debug("reset roamer")
+		self.logDebug("reset roamer")
 		print("travel to Jubilife City")
 		self.waitAndRender(0.5)
 		self.press(Button.BUTTON_X)
@@ -161,7 +164,7 @@ class BDSPScript(PokemonScript):
 
 		self.press(Button.BUTTON_R)
 		self.waitAndRender(0.2)
-		logging.debug("run towards start location")
+		self.logDebug("run towards start location")
 		self.press(Button.L_LEFT, 0.8)
 		self.press(Button.L_DOWN, 6.5)
 
@@ -175,12 +178,12 @@ class BDSPScript(PokemonScript):
 			self.waitAndRender(1)
 
 			if encounter is True:
-				logging.debug(f"found after reloading area {areaReloads} times")
-				logging.debug("roamer in area")
+				self.logDebug(f"found after reloading area {areaReloads} times")
+				self.logDebug("roamer in area")
 				self.press(Button.L_UP, 0.3)
 				self.waitAndRender(0.1)
 
-				logging.debug("open backpack")
+				self.logDebug("open backpack")
 				self.press(Button.BUTTON_X)
 				self.waitAndRender(0.5)
 
@@ -196,14 +199,14 @@ class BDSPScript(PokemonScript):
 
 				self.pressN(Button.L_RIGHT, 4, 0.1, render=True)
 
-				logging.debug("use repel")
+				self.logDebug("use repel")
 				self.pressN(Button.BUTTON_A, 3, 1, render=True)
 				self.pressN(Button.BUTTON_B, 5, 1, render=True)
 
 				self._ser.write(b"a")
 
 				_directions = cycle(("a", "d"))
-				logging.debug("go for encounter")
+				self.logDebug("go for encounter")
 				tEnd = time.time() + 2
 				frame = self.getframe()
 				while frame.colorAt(LOADING_SCREEN_POS) != Color.White():
@@ -211,9 +214,9 @@ class BDSPScript(PokemonScript):
 						self._ser.write(next(_directions).encode())
 						tEnd = time.time() + 0.5
 
-					if frame.colorAt(SHORT_DIALOG_POS) == Color.White():
+					if frame.colorAt(SHORT_DIALOG_POS_2) == Color.White():
 						self._ser.write(b"0")
-						logging.debug("re-apply repel")
+						self.logDebug("re-apply repel")
 						# repel used up
 						for d in (2, 1, 1):
 							self.waitAndRender(d)
@@ -227,13 +230,13 @@ class BDSPScript(PokemonScript):
 				self.awaitNotColor(LOADING_SCREEN_POS, Color.White())
 				return self.checkShinyDialog(e, 1.5)
 			else:
-				logging.debug("reload area")
+				self.logDebug("reload area")
 				areaReloads += 1
 				self.press(Button.L_UP, 2)
 				self.press(Button.L_DOWN, 2.1)
 
 	def runFromEncounter(self) -> None:
-		logging.debug("run from encounter")
+		self.logDebug("run from encounter")
 		while True:
 			self.press(Button.L_UP)
 			self.waitAndRender(0.5)
@@ -242,14 +245,14 @@ class BDSPScript(PokemonScript):
 			self.press(Button.BUTTON_B)
 
 			if self.awaitColor(OWN_POKEMON_POS, Color.Black(), 10):
-				logging.debug("fade out")
+				self.logDebug("fade out")
 				break
 			else:
 				self.waitAndRender(15)
-				logging.debug("failed to run or wrong option selected (due to lag, or some other thing)")
+				self.logDebug("failed to run or wrong option selected (due to lag, or some other thing)")
 
 		self.awaitNotColor(OWN_POKEMON_POS, Color.Black())
-		logging.debug("return to game")
+		self.logDebug("return to game")
 		self.waitAndRender(1)
 
 	def getName(self) -> Optional[str]:

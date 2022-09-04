@@ -9,121 +9,29 @@ import time
 from abc import abstractmethod
 from collections.abc import Generator
 from collections.abc import Sequence
-from enum import Enum
 from typing import Any
 from typing import Callable
-from typing import NamedTuple
-from typing import Optional
+from typing import final
 from typing import TypeVar
 from typing import Union
 
 import cv2
-import numpy
 import serial
 import telegram
 import telegram_send
 
-
-class ExecCrash(Exception):
-	"""
-	WIP
-
-	Used when game crashes ("The software was closed because an error occured." screen)
-	"""
-
-
-class ExecLock(Exception):
-	"""
-	Used when the game "locks"
-
-	(timeout on pixel detection, etc.)
-	"""
-
-	def __init__(self, ctx: Optional[str] = None, *args) -> None:
-		super().__init__(*args)
-
-		self.ctx = ctx
-
-
-class ExecStop(Exception):
-	"""Terminate script"""
-
-	def __init__(self, encounters: Optional[int] = None, *args):
-		super().__init__(*args)
-
-		self.encounters = encounters
-
-
-class Pos(NamedTuple):
-	x: int
-	y: int
-
-	def __str__(self) -> str:
-		return f"({self.x}, {self.y})"
-
-
-class Color(NamedTuple):
-	r: int
-	g: int
-	b: int
-
-	@property
-	def tpl(self) -> tuple[int, int, int]:
-		return (self.r, self.g, self.b)
-
-	@staticmethod
-	def White() -> Color:
-		return Color(255, 255, 255)
-
-	@staticmethod
-	def Black() -> Color:
-		return Color(0, 0, 0)
-
-	def __str__(self) -> str:
-		return f"({self.r}, {self.g}, {self.b})"
-
-	def distance(self, other: Color) -> int:
-		return sum(
-			(c2 - c1) ** 2
-			for c1, c2 in zip(self.tpl, other.tpl)
-		)
-
-
-class Button(Enum):
-	EMPTY = "0"
-	BUTTON_A = "A"
-	BUTTON_B = "B"
-	BUTTON_X = "X"
-	BUTTON_Y = "Y"
-	BUTTON_HOME = "H"
-	BUTTON_PLUS = "+"
-	BUTTON_MINUS = "-"
-	BUTTON_L = "L"
-	BUTTON_R = "R"
-	BUTTON_ZL = "l"
-	BUTTON_ZR = "r"
-	L_UP_LEFT = "q"
-	L_UP = "w"
-	L_UP_RIGHT = "e"
-	L_LEFT = "a"
-	L_RIGHT = "d"
-	L_DOWN_LEFT = "z"
-	L_DOWN_RIGHT = "c"
-	L_DOWN = "s"
-	R_UP_LEFT = "y"
-	R_UP = "u"
-	R_UP_RIGHT = "i"
-	R_LEFT = "h"
-	R_RIGHT = "k"
-	R_DOWN_LEFT = "n"
-	R_DOWN_RIGHT = "m"
-	R_DOWN = "j"
-
-	def encode(self) -> bytes:
-		return str(self.value).encode()
-
-
-LOADING_SCREEN_POS = Pos(705, 15)
+from ._button import Button as Button
+from ._capture import Capture as Capture
+from ._color import Color as Color
+from ._frame import Frame as Frame
+from ._logging import log as log
+from ._logging import LOG_PRESS as LOG_PRESS
+from ._logging import LOGGERS as LOGGERS
+from ._pos import LOADING_SCREEN_POS as LOADING_SCREEN_POS
+from ._pos import Pos as Pos
+from .exceptions import ExecCrash as ExecCrash
+from .exceptions import ExecLock as ExecLock
+from .exceptions import ExecStop as ExecStop
 
 
 @contextlib.contextmanager
@@ -132,72 +40,19 @@ def shh(ser: serial.Serial) -> Generator[None, None, None]:
 	finally: ser.write(b'.')
 
 
-def loadJson(filePath: str) -> dict:
+def loadJson(filePath: str) -> dict[str, Any]:
 	with open(filePath, "r+") as f:
-		data: dict = json.load(f)
+		data: dict[str, Any] = json.load(f)
 	return data
 
 
-def dumpJson(filePath: str, data: dict) -> None:
+def dumpJson(filePath: str, data: dict[Any, Any]) -> None:
 	with open(filePath, "w") as f:
 		json.dump(data, f, indent="\t", sort_keys=True)
 
 
 T = TypeVar("T")
 K = TypeVar("K")
-
-
-def jsonGetDefault(data: dict[K, T], key: K, default: T) -> tuple[dict[K, T], T]:
-	try:
-		return (data, data[key])
-	except KeyError:
-		return (data | {key: default}, default)
-
-
-class Frame:
-	def __init__(self, frame: numpy.ndarray) -> None:
-		self._frame = frame
-
-	@property
-	def ndarray(self) -> numpy.ndarray:
-		return self._frame
-
-	def colorAt(self, pos: Pos) -> Color:
-		b, g, r = self._frame[pos.y][pos.x]
-		return Color(r, g, b)
-
-
-class Capture:
-	def __init__(self, *, width: int = 768, height: int = 480, fps: int = 30):
-		self._vidWidth = width
-		self._vidHeight = height
-
-		vid = cv2.VideoCapture(0)
-		vid.set(cv2.CAP_PROP_FPS, fps)
-		vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-		vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-
-		self.vid: cv2.VideoCapture = vid
-
-	@property
-	def vidWidth(self) -> int:
-		return self._vidWidth
-
-	@property
-	def vidHeight(self) -> int:
-		return self._vidHeight
-
-	def read(self) -> Frame:
-		_, frame = self.vid.read()
-
-		return Frame(frame)
-
-	def getFrameRGB(self) -> numpy.ndarray:
-		return cv2.cvtColor(self.read().ndarray, cv2.COLOR_BGR2RGB)
-
-	def __del__(self):
-		if self.vid and self.vid.isOpened():
-			self.vid.release()
 
 
 class RequirementsAction(argparse.Action):
@@ -213,16 +68,13 @@ class RequirementsAction(argparse.Action):
 		parser.exit()
 
 
-Config = dict[str, Any]
-
-
 class Script:
 	@staticmethod
 	@abstractmethod
 	def requirements() -> tuple[str, ...]:
 		raise NotImplementedError
 
-	def __init__(self, ser: serial.Serial, cap: Capture, config: Config, **kwargs) -> None:
+	def __init__(self, ser: serial.Serial, cap: Capture, config: dict[str, Any], **kwargs) -> None:
 		self._ser = ser
 		self._cap = cap
 
@@ -241,6 +93,18 @@ class Script:
 	def main(self, e: int) -> Any:
 		raise NotImplementedError
 
+	@final
+	def log(self, level: int, msg: str) -> None:
+		log(level, msg)
+
+	@final
+	def logDebug(self, msg: str) -> None:
+		self.log(logging.DEBUG, msg)
+
+	@final
+	def logInfo(self, msg: str) -> None:
+		self.log(logging.INFO, msg)
+
 	def getframe(self) -> Frame:
 		frame = self._cap.read()
 
@@ -253,7 +117,7 @@ class Script:
 			return frame
 
 	def press(self, s: Union[str, Button], duration: float = 0.05, render: bool = False) -> None:
-		logging.debug(f"press '{s}' for {duration}s")
+		self.log(LOG_PRESS, f"press '{s}' for {duration}s")
 
 		self._ser.write(s.encode())
 		if render is True or duration >= 0.5:
@@ -267,7 +131,7 @@ class Script:
 		time.sleep(0.075)
 
 	def pressN(self, s: Union[str, Button], n: int, delay: float, duration: float = 0.05, render: bool = False) -> None:
-		logging.debug(f"press '{s}' {n} times for {duration}s (delay: {delay}s)")
+		self.log(LOG_PRESS, f"press '{s}' {n} times for {duration}s (delay: {delay}s)")
 
 		for _ in range(n):
 			self.press(s, duration, render)
@@ -277,7 +141,7 @@ class Script:
 				time.sleep(delay)
 
 	def waitAndRender(self, duration: float) -> None:
-		logging.debug(f"wait for {duration}")
+		self.logDebug(f"wait for {duration}")
 		tEnd = time.time() + duration
 		while time.time() < tEnd:
 			self.getframe()
@@ -317,7 +181,7 @@ class Script:
 
 		while not all(map(lambda c: frame.colorAt(c[0]) == c[1], colors)):
 			if time.time() > tEnd:
-				raise ExecLock
+				raise ExecLock(f"did not find colors ({(f'{c} at {p}' for p, c in colors)})")
 			frame = self.getframe()
 
 	def awaitNotColors(self, colors: tuple[tuple[Pos, Color], ...], timeout: float = 90) -> None:
@@ -417,7 +281,7 @@ class Script:
 			frame = self.getframe()
 
 	def resetGame(self) -> None:
-		logging.debug("reset game")
+		self.logDebug("reset game")
 		self.press(Button.BUTTON_HOME)
 		self.waitAndRender(2)
 		self.press(Button.BUTTON_X)
@@ -428,10 +292,10 @@ class Script:
 		try:
 			telegram_send.send(**kwargs)
 		except telegram.error.NetworkError as e:
-			logging.warning(f"telegram_send: connection failed: {e}")
+			self.log(logging.WARNING, f"telegram_send: connection failed: {e}")
 
 	def sendMsg(self, msg: str) -> None:
-		logging.debug(f"send telegram message: '{msg}'")
+		self.logDebug(f"send telegram message: '{msg}'")
 		self._sendTelegram(messages=(msg,))
 
 	def sendScreenshot(self, frame: Frame) -> None:

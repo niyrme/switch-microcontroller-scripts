@@ -15,7 +15,7 @@ import yaml
 import lib
 from lib import Button
 from lib import Capture
-from lib import Config
+from lib import log
 from lib.pokemon import ExecShiny
 from lib.pokemon import Langs
 from lib.pokemon.bdsp import BDSPScript
@@ -41,17 +41,17 @@ for script in _scripts:
 	try:
 		_p = importlib.import_module(f"scripts.pokemon.bdsp.{script}").Parser
 	except ModuleNotFoundError:
-		logging.warning(f"Failed to import {script}")
+		log(logging.WARNING, f"failed to import {script}")
 	except AttributeError:
-		logging.warning(f"Failed to get Parser from {script}")
+		log(logging.WARNING, f"failed to get Parser from {script}")
 	else:
 		_ScriptsParser.add_parser(script, parents=(_p,))
 
 
 def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: int) -> int:
-	logging.info(f"start encounters: {encountersStart}")
+	log(logging.INFO, f"start encounters: {encountersStart}")
 	with open(args.pop("configFile"), "r") as f:
-		cfg: Config = yaml.safe_load(f)
+		cfg: dict[str, Any] = yaml.safe_load(f)
 
 	sendNth: int = args.pop("sendNth")
 
@@ -60,10 +60,10 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 		if stopAt <= encountersStart:
 			stopAt = None
 		else:
-			logging.info(f"running until encounters reach {stopAt}")
+			log(logging.INFO, f"running until encounters reach {stopAt}")
 
 	with serial.Serial(cfg.pop("serialPort", "COM0"), 9600) as ser, lib.shh(ser):
-		logging.info("setting up cv2. This may take a while...")
+		log(logging.INFO, "setting up cv2. This may take a while...")
 		cap = Capture(
 			width=768,
 			height=480,
@@ -79,7 +79,7 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 
 		script = scriptClass(ser, cap, cfg, **args, windowName="Pokermans")
 		script.sendMsg("Script started")
-		logging.info("script started")
+		log(logging.INFO, "script started")
 		script.waitAndRender(1)
 		try:
 			tStart = datetime.now()
@@ -121,10 +121,10 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 				except lib.ExecLock as e:
 					ctx = f" (context: {e.ctx})" if e.ctx is not None else ""
 					msg = f"script locked up{ctx}"
-					logging.warning(msg)
+					script.log(logging.WARNING, msg)
 					script.sendMsg(msg)
 
-					logging.warning("check switch status and press ctrl+c to continue")
+					script.log(logging.WARNING, "check switch status and press ctrl+c to continue")
 
 					try:
 						while True:
@@ -134,7 +134,7 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 					crashes += 1
 					continue
 				except lib.ExecCrash:
-					logging.warning("script crashed, reset switch to home screen and press ctrl+c to continue")
+					script.log(logging.WARNING, "script crashed, reset switch to home screen and press ctrl+c to continue")
 					script.sendMsg("script crashed!")
 					try:
 						while True:
@@ -158,7 +158,7 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 					else:
 						msg = "found a SHINY!"
 
-					logging.info(msg)
+					log(logging.INFO, msg)
 					script.sendMsg(msg)
 
 					script.sendScreenshot(shiny.encounterFrame)
@@ -172,27 +172,27 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 							raise lib.ExecStop(shiny.encounter + 1)
 				else:
 					if script.sendAllEncounters is False and sendNth >= 2 and currentEncounters % sendNth == 0:
-						logging.debug("send screenshot")
+						log(logging.DEBUG, "send screenshot")
 						script.sendScreenshot(encounterFrame)
 					elif script.sendAllEncounters is True:
-						logging.debug("send screenshot")
+						log(logging.DEBUG, "send screenshot")
 						script.sendScreenshot(encounterFrame)
 				finally:
 					currentEncounters += 1
 					if stopAt is not None and encounters >= stopAt:
-						logging.info(f"reached target of {stopAt} encounters")
-						logging.info("stoppping script")
+						log(logging.INFO, f"reached target of {stopAt} encounters")
+						log(logging.INFO, "stoppping script")
 						break
 		except lib.ExecStop as e:
 			if e.encounters is not None:
 				encounters = e.encounters
-			logging.info("script stopped")
+			log(logging.INFO, "script stopped")
 		except (KeyboardInterrupt, EOFError):
-			logging.info("script stopped")
+			log(logging.INFO, "script stopped")
 		except Exception as e:
 			s = f"Program crashed: {e}"
 			script.sendMsg(s)
-			logging.error(s)
+			log(logging.ERROR, s)
 		finally:
 			ser.write(b"0")
 			return encounters
