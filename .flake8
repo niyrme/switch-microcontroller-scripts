@@ -1,8 +1,10 @@
 [flake8]
 ignore =
-	W191 # I like tabs more
 	E501 # Screens are big now
 	E701
+	F401
+	W191 # I like tabs more
+	W504
 exclude =
 	venv
 	__pycache__
