@@ -8,7 +8,7 @@ from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib import RequirementsAction
 from lib.pokemon.bdsp import BDSPScript
-from lib.pokemon.bdsp import SHORT_DIALOG_POS
+from lib.pokemon.bdsp import SHORT_DIALOG_POS_2
 
 
 _Requirements: tuple[str, ...] = ("Stand in front of Darkrai",)
@@ -29,7 +29,7 @@ class Script(BDSPScript):
 		self.awaitInGame()
 
 		self.press(Button.BUTTON_A)
-		self.awaitColor(SHORT_DIALOG_POS, Color.White())
+		self.awaitColor(SHORT_DIALOG_POS_2, Color.White())
 		self.waitAndRender(0.5)
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(0.5)
@@ -39,6 +39,6 @@ class Script(BDSPScript):
 		self.awaitNotNearColor(LOADING_SCREEN_POS, Color.White(), 80)
 		self.waitAndRender(2)
 
-		logging.debug("waiting for dialog")
+		self.logDebug("waiting for dialog")
 
 		return (e + 1, self.checkShinyDialog(e, 1.5))

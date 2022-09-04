@@ -35,6 +35,6 @@ class Script(BDSPScript):
 
 		self.waitAndRender(0.5)
 
-		logging.debug("waiting for dialog")
+		self.logDebug("waiting for dialog")
 
 		return (e + 1, self.checkShinyDialog(e, 1.5))

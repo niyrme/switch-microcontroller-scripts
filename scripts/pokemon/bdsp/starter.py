@@ -8,6 +8,7 @@ from lib import Color
 from lib import Frame
 from lib import RequirementsAction
 from lib.pokemon import ExecShiny
+from lib.pokemon import LOG_DELAY
 from lib.pokemon.bdsp import BDSPScript
 from lib.pokemon.bdsp import ENCOUNTER_DIALOG_POS_2
 from lib.pokemon.bdsp import OWN_POKEMON_POS
@@ -80,7 +81,7 @@ class Script(BDSPScript):
 		self.awaitColor(OWN_POKEMON_POS, Color.White())
 		diff = time.time() - t0
 
-		print(f"dialog delay: {diff:.3f}s")
+		self.log(LOG_DELAY, f"dialog delay: {diff:.3f}s")
 
 		if 15 > diff > 2:
 			raise ExecShiny(e + 1, encounterFrame)

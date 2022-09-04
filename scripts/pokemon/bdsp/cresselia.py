@@ -7,7 +7,7 @@ from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib import RequirementsAction
 from lib.pokemon.bdsp import BDSPScript
-from lib.pokemon.bdsp import SHORT_DIALOG_POS
+from lib.pokemon.bdsp import SHORT_DIALOG_POS_2
 
 
 _Requirements: tuple[str, ...] = (
@@ -38,7 +38,7 @@ class Script(BDSPScript):
 		self.press(Button.BUTTON_A)
 		self.awaitFlash(LOADING_SCREEN_POS, Color.Black(), 5)
 		self.waitAndRender(1)
-		self.awaitColor(SHORT_DIALOG_POS, Color.White())
+		self.awaitColor(SHORT_DIALOG_POS_2, Color.White())
 
 		self.waitAndRender(1)
 		self.press(Button.BUTTON_A)

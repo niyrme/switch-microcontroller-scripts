@@ -27,7 +27,7 @@ class Script(BDSPScript):
 	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 
-		direction: Literal["h", "v"] = kwargs.pop("direction")
+		direction: str = kwargs.pop("direction")
 		assert direction in ("h", "v")
 
 		self._directions = cycle(
@@ -38,8 +38,8 @@ class Script(BDSPScript):
 
 		self._delay = float(kwargs.pop("delay"))
 
-		logging.debug(f"directions: {self._directions}")
-		logging.debug(f"delay: {self._delay}")
+		self.logDebug(f"directions: {self._directions}")
+		self.logDebug(f"delay: {self._delay}")
 
 	@property
 	def target(self) -> str:

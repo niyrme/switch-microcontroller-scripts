@@ -42,7 +42,7 @@ class Script(BDSPScript):
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(0.5)
 
-		logging.debug("reload area")
+		self.logDebug("reload area")
 		self.press(Button.L_DOWN, 3.5)
 		self.press(Button.L_UP, 3.8)
 		return (e + 1, encounterFrame)

@@ -9,7 +9,7 @@ from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib import RequirementsAction
 from lib.pokemon.bdsp import BDSPScript
-from lib.pokemon.bdsp import SHORT_DIALOG_POS
+from lib.pokemon.bdsp import SHORT_DIALOG_POS_2
 
 
 _Requirements: tuple[str, ...] = ("Stand in front of Heatran",)
@@ -27,10 +27,10 @@ class Script(BDSPScript):
 
 	def awaitInGame(self) -> None:
 		self.awaitColor(LOADING_SCREEN_POS, Color.Black())
-		logging.debug("startup screen")
+		self.logDebug("startup screen")
 
 		self.whileColor(LOADING_SCREEN_POS, Color.Black(), 0.5, lambda: self.press(Button.BUTTON_A))
-		logging.debug("after startup")
+		self.logDebug("after startup")
 
 		self.waitAndRender(1)
 
@@ -44,7 +44,7 @@ class Script(BDSPScript):
 		# loading screen to game
 		self.awaitFlash(LOADING_SCREEN_POS, Color.Black())
 
-		logging.debug("in game")
+		self.logDebug("in game")
 		self.waitAndRender(1)
 
 	def main(self, e: int) -> tuple[int, Frame]:
@@ -54,7 +54,7 @@ class Script(BDSPScript):
 		self.waitAndRender(2)
 
 		self.press(Button.BUTTON_A)
-		self.awaitColor(SHORT_DIALOG_POS, Color.White())
+		self.awaitColor(SHORT_DIALOG_POS_2, Color.White())
 		self.waitAndRender(0.5)
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(0.5)
@@ -63,6 +63,6 @@ class Script(BDSPScript):
 		self.waitAndRender(3)
 		self.awaitFlash(LOADING_SCREEN_POS, Color.White())
 
-		logging.debug("waiting for dialog")
+		self.logDebug("waiting for dialog")
 
 		return (e + 1, self.checkShinyDialog(e, 1.5))
