@@ -98,7 +98,13 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 					("Crashes", crashes),
 				]
 				if stopAt is not None:
-					stats.append(("Stop at", stopAt))
+					remainingEncounters = stopAt - encounters
+					remainingTime = avg * remainingEncounters
+					stats.extend((
+						("Stop at", stopAt),
+						("Remaining", remainingEncounters),
+						("Est. time remaining", timedelta(days=remainingTime.days, seconds=remainingTime.seconds)),
+					))
 				if script.showLastRunDuration is True:
 					stats.append(("Last run duration", timedelta(days=runDuration.days, seconds=runDuration.seconds)))
 				if script.showBnp is True:
