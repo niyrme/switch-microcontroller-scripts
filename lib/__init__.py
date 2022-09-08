@@ -26,7 +26,7 @@ from ._capture import Capture as Capture
 from ._color import Color as Color
 from ._frame import Frame as Frame
 from ._logging import log as log
-from ._logging import LOG_PRESS as LOG_PRESS
+from ._logging import LOG_TRACE as LOG_TRACE
 from ._logging import LOGGERS as LOGGERS
 from ._pos import LOADING_SCREEN_POS as LOADING_SCREEN_POS
 from ._pos import Pos as Pos
@@ -106,6 +106,9 @@ class Script:
 	def logInfo(self, msg: str) -> None:
 		self.log(logging.INFO, msg)
 
+	def logTrace(self, msg: str) -> None:
+		self.log(LOG_TRACE, msg)
+
 	def getframe(self) -> Frame:
 		frame = self._cap.read()
 
@@ -118,7 +121,7 @@ class Script:
 			return frame
 
 	def press(self, s: Union[str, Button], duration: float = 0.05, render: bool = False) -> None:
-		self.log(LOG_PRESS, f"press '{s}' for {duration}s")
+		self.logDebug(f"press '{s}' for {duration}s")
 
 		self._ser.write(s.encode())
 		if render is True or duration >= 0.5:
@@ -132,7 +135,7 @@ class Script:
 		time.sleep(0.075)
 
 	def pressN(self, s: Union[str, Button], n: int, delay: float, duration: float = 0.05, render: bool = False) -> None:
-		self.log(LOG_PRESS, f"press '{s}' {n} times for {duration}s (delay: {delay}s)")
+		self.logDebug(f"press '{s}' {n} times for {duration}s (delay: {delay}s)")
 
 		for _ in range(n):
 			self.press(s, duration, render)
@@ -181,6 +184,10 @@ class Script:
 		tEnd = time.time() + timeout
 
 		while not all(map(lambda c: frame.colorAt(c[0]) == c[1], colors)):
+			for _pos, _c in colors:
+				_color = frame.colorAt(_pos)
+				_distance = _color.distance(_c)
+				self.logTrace(f"Pos: {str(_pos):<12} | Color: {str(_color):<16} | Distance: {_distance}")
 			if time.time() > tEnd:
 				raise ExecLock(f"did not find colors ({(f'{c} at {p}' for p, c in colors)})")
 			frame = self.getframe()
@@ -198,10 +205,12 @@ class Script:
 		self.awaitColor(pos, color, timeout)
 		self.awaitNotColor(pos, color, timeout)
 
-	def awaitNearColor(self, pos: Pos, color: Color, distance: int = 30, timeout: float = 90) -> None:
+	def awaitNearColor(self, pos: Pos, color: Color, distance: int = 75, timeout: float = 90) -> None:
 		tEnd = time.time() + timeout
 		frame = self.getframe()
 		while not self.nearColor(frame.colorAt(pos), color, distance):
+			_color = frame.colorAt(pos)
+			self.logTrace(f"Pos: {str(pos):<12} | Color: {str(_color):<16} | Distance {_color.distance(color)}")
 			if time.time() > tEnd:
 				raise ExecLock(
 					f"did not find near color ({color}) at ({pos}) (distance: {distance});"
@@ -209,7 +218,7 @@ class Script:
 				)
 			frame = self.getframe()
 
-	def awaitNotNearColor(self, pos: Pos, color: Color, distance: int = 30, timeout: float = 90) -> None:
+	def awaitNotNearColor(self, pos: Pos, color: Color, distance: int = 75, timeout: float = 90) -> None:
 		tEnd = time.time() + timeout
 		frame = self.getframe()
 		while self.nearColor(frame.colorAt(pos), color, distance):
@@ -218,6 +227,21 @@ class Script:
 					f"did not find not near color ({color}) at ({pos}) (distance: {distance});"
 					f"color in last frame: {frame.colorAt(pos)} (distance: {frame.colorAt(pos).distance(color)})",
 				)
+			frame = self.getframe()
+
+	def awaitNearColors(self, colors: tuple[tuple[Pos, Color], ...], distance: int = 75, timeout: float = 90) -> None:
+		frame = self.getframe()
+		tEnd = time.time() + timeout
+
+		self.logTrace(f"{timeout=}")
+
+		while not all(map(lambda c: self.nearColor(frame.colorAt(c[0]), c[1], distance), colors)):
+			for _pos, _c in colors:
+				_color = frame.colorAt(_pos)
+				_distance = _color.distance(_c)
+				self.logTrace(f"Pos: {str(_pos):<12} | Color: {str(_color):<16} | Distance: {_distance}")
+			if time.time() > tEnd:
+				raise ExecLock(f"did not find near colors ({(f'{c} at {p}' for p, c in colors)}) (distance: {distance})")
 			frame = self.getframe()
 
 	def whileColor(self, pos: Pos, color: Color, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:

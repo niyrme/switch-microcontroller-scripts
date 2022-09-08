@@ -10,7 +10,7 @@ from lib import log
 def main() -> int:
 	parser = argparse.ArgumentParser(prog="switchScripts")
 	parser.add_argument("-c", "--config-file", type=str, dest="configFile", default="config.yaml", help="configuration file (defualt: %(default)s)")
-	parser.add_argument("-p", "--trace-press", action="store_true", dest="trace", help="trace button presses")
+	parser.add_argument("-t", "--trace", action="store_true", default="trace")
 
 	path = pathlib.Path(__file__)
 
@@ -41,9 +41,8 @@ def main() -> int:
 	_Nth = str(Nth)
 
 	if args.pop("trace") is True:
-		from lib import LOGGERS
-		from lib._logging import _pressLogger
-		LOGGERS.append(_pressLogger)
+		from lib._logging import addTrace
+		addTrace()
 
 	if Nth >= 2:
 		for (n, s) in ((("11", "12", "13"), "th"), ("1", "st"), ("2", "nd"), ("3", "rd")):

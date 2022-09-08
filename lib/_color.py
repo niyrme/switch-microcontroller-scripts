@@ -24,7 +24,4 @@ class Color(NamedTuple):
 		return f"({self.r}, {self.g}, {self.b})"
 
 	def distance(self, other: Color) -> int:
-		return sum(
-			(c2 - c1) ** 2
-			for c1, c2 in zip(self.tpl, other.tpl)
-		)
+		return sum((c2 - c1) ** 2 for c1, c2 in zip(other.tpl, self.tpl))

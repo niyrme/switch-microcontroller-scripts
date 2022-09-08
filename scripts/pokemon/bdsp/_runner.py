@@ -104,6 +104,7 @@ def printStats(
 		if isinstance(stat, float):
 			stat = f"{stat:.3f}"
 		print(f"{(info + ':').ljust(maxStatLen)} {stat}")
+	print()
 
 
 def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: int) -> int:
@@ -180,7 +181,6 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 					continue
 				except ExecShiny as shiny:
 					if isinstance(script, BDSPScript):
-						script.waitAndRender(15)
 						name = script.getName()
 						if name is not None:
 							name = f"SHINY {name}"

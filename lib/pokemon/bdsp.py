@@ -244,10 +244,12 @@ class BDSPScript(PokemonScript):
 			self.waitAndRender(0.5)
 			self.press(Button.BUTTON_B)
 
-			if self.awaitColor(OWN_POKEMON_POS, Color.Black(), 10):
-				self.logDebug("fade out")
+			self.logDebug("wait for black out")
+			try:
+				self.awaitNearColor(OWN_POKEMON_POS, Color.Black(), distance=50, timeout=10)
+				self.logDebug("black out")
 				break
-			else:
+			except ExecLock:
 				self.waitAndRender(15)
 				self.logDebug("failed to run or wrong option selected (due to lag, or some other thing)")
 
@@ -256,6 +258,7 @@ class BDSPScript(PokemonScript):
 		self.waitAndRender(1)
 
 	def getName(self) -> Optional[str]:
+		self.waitAndRender(15)
 		frame = cv2.cvtColor(self.getframe().ndarray, cv2.COLOR_BGR2GRAY)
 		crop = frame[30:54, 533:641]
 		text = pytesseract.image_to_string(crop)

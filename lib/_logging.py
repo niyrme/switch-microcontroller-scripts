@@ -19,12 +19,8 @@ _debugLogger = logging.getLogger("DEBUG")
 _debugLogger.addHandler(_debugFileHDLR)
 _debugLogger.setLevel(logging.DEBUG)
 
-LOG_PRESS = logging.DEBUG - 1
-logging.addLevelName(LOG_PRESS, "PRESS")
-
-_pressLogger = logging.getLogger("TRACE")
-_pressLogger.addHandler(_streamHDLR)
-_pressLogger.setLevel(LOG_PRESS)
+LOG_TRACE = logging.DEBUG - 1
+logging.addLevelName(LOG_TRACE, "TRACE")
 
 _infoLogger = logging.getLogger("INFO")
 _infoLogger.addHandler(_streamHDLR)
@@ -42,3 +38,16 @@ LOGGERS = [
 def log(level: int, msg: str) -> None:
 	for lgr in LOGGERS:
 		lgr.log(level, msg)
+
+
+def addTrace() -> None:
+	global LOGGERS
+
+	_traceFileHDLR = logging.FileHandler("logs/_trace.log", "w+")
+	_traceFileHDLR.setFormatter(_defaultFmt)
+
+	_traceLogger = logging.getLogger("TRACE")
+	_traceLogger.addHandler(_traceFileHDLR)
+	_traceLogger.setLevel(LOG_TRACE)
+
+	LOGGERS.append(_traceLogger)
