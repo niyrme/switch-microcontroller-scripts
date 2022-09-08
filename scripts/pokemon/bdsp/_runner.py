@@ -2,6 +2,7 @@ import argparse
 import importlib
 import logging
 import pathlib
+import threading
 import time
 from datetime import datetime
 from datetime import timedelta
@@ -48,6 +49,63 @@ for script in _scripts:
 		_ScriptsParser.add_parser(script, parents=(_p,))
 
 
+def _stripTD(delta: timedelta) -> timedelta:
+	return timedelta(days=delta.days, seconds=delta.seconds)
+
+
+def printStats(
+	script: BDSPScript,
+	scriptStart: datetime,
+	crashes: int,
+	encounters: tuple[int, int],
+	stopAt: Optional[int],
+	lastDuration: timedelta,
+) -> None:
+	now = datetime.now()
+	runDuration = _stripTD(now - scriptStart)
+
+	encCurrent, encTotoal = encounters
+
+	avg = _stripTD(runDuration / (encCurrent or 1))
+
+	stats: list[tuple[str, Any]] = [
+		("Target", script.target),
+		("Running for", runDuration),
+		("Average per reset", avg),
+		("Encounter", f"{encCurrent:>04}/{encTotoal:>05}"),
+		("Crashes", crashes),
+	]
+
+	if stopAt is not None:
+		remainingEncounters = stopAt - encTotoal
+		remainingTime = _stripTD(avg * remainingEncounters)
+		estEnd = scriptStart + remainingTime
+
+		stats.extend((
+			("Stop at", stopAt),
+			("Remaining", remainingEncounters),
+			("Est. time remaining", remainingTime),
+			("Est. end", estEnd.strftime("%Y/%m/%d - %H:%M:%S")),
+		))
+
+	if script.showLastRunDuration is True:
+		stats.append(("Last run duration", _stripTD(lastDuration)))
+
+	if script.showBnp is True:
+		bnp = (1 - ((4095 / 4096) ** encTotoal)) * 100
+		stats.append(("B(n, p)", f"{bnp:.2f}%"))
+
+	stats.extend(script.extraStats)
+
+	maxStatLen = max(len(s[0]) for s in stats) + 2
+
+	print("\033c", end="")
+	for info, stat in stats:
+		if isinstance(stat, float):
+			stat = f"{stat:.3f}"
+		print(f"{(info + ':').ljust(maxStatLen)} {stat}")
+
+
 def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: int) -> int:
 	log(logging.INFO, f"start encounters: {encountersStart}")
 	with open(args.pop("configFile"), "r") as f:
@@ -73,57 +131,26 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 		ser.write(b"0")
 		time.sleep(0.1)
 
-		currentEncounters = 0
 		encounters = encountersStart
-		crashes = 0
 
 		script = scriptClass(ser, cap, cfg, **args, windowName="Pokermans")
 		script.sendMsg("Script started")
 		log(logging.INFO, "script started")
 		script.waitAndRender(1)
+
+		crashes = 0
+		currentEncounters = 0
+		lastDuration = timedelta(0, 0)
+
 		try:
-			tStart = datetime.now()
-			runDuration = timedelta(days=0, seconds=0)
+			scriptStart = datetime.now()
 
 			while True:
-				print("\033c", end="")
-
-				runDelta = datetime.now() - tStart
-				avg = runDelta / (currentEncounters if currentEncounters != 0 else 1)
-				stats: list[tuple[str, Any]] = [
-					("Target", script.target),
-					("Running for", timedelta(days=runDelta.days, seconds=runDelta.seconds)),
-					("Average per reset", timedelta(days=avg.days, seconds=avg.seconds)),
-					("Encounters", f"{currentEncounters:>03}/{encounters:>05}"),
-					("Crashes", crashes),
-				]
-				if stopAt is not None:
-					remainingEncounters = stopAt - encounters
-					remainingTime = avg * remainingEncounters
-					stats.extend((
-						("Stop at", stopAt),
-						("Remaining", remainingEncounters),
-						("Est. time remaining", timedelta(days=remainingTime.days, seconds=remainingTime.seconds)),
-					))
-				if script.showLastRunDuration is True:
-					stats.append(("Last run duration", timedelta(days=runDuration.days, seconds=runDuration.seconds)))
-				if script.showBnp is True:
-					bnp = (1 - ((4095 / 4096) ** encounters)) * 100
-					stats.append(("B(n, p)", f"{bnp:.2f}%"))
-				stats.extend(script.extraStats)
-
-				maxStatInfoLen = max(len(s[0]) for s in stats) + 1
-				for (info, stat) in stats:
-					if isinstance(stat, float):
-						stat = f"{stat:.3f}"
-					print(f"{(info + ':').ljust(maxStatInfoLen)} {stat}")
-
-				print()
+				printStats(script, scriptStart, crashes, (currentEncounters, encounters), stopAt, lastDuration)
 
 				runStart = datetime.now()
 				try:
 					encounters, encounterFrame = script(encounters)
-					runDuration = datetime.now() - runStart
 				except lib.ExecLock as e:
 					ctx = f" (context: {e.ctx})" if e.ctx is not None else ""
 					msg = f"script locked up{ctx}"
@@ -185,6 +212,8 @@ def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: in
 						script.sendScreenshot(encounterFrame)
 				finally:
 					currentEncounters += 1
+					lastDuration = datetime.now() - runStart
+
 					if stopAt is not None and encounters >= stopAt:
 						log(logging.INFO, f"reached target of {stopAt} encounters")
 						log(logging.INFO, "stoppping script")
