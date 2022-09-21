@@ -1,5 +1,4 @@
 import argparse
-import logging
 from typing import Optional
 
 from lib import Button
@@ -34,8 +33,7 @@ class Script(BDSPScript):
 
 		self.waitAndRender(1)
 
-		frame = self.getframe()
-		if frame.colorAt(LOADING_SCREEN_POS) == Color(41, 41, 41):
+		if self.getframe().colorAt(LOADING_SCREEN_POS) == Color(41, 41, 41):
 			raise ExecCrash
 
 		self.press(Button.BUTTON_A)

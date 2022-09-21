@@ -1,5 +1,4 @@
 import argparse
-import logging
 from typing import Optional
 
 from lib import Button

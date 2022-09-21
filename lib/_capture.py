@@ -33,5 +33,6 @@ class Capture:
 		return cv2.cvtColor(self.read().ndarray, cv2.COLOR_BGR2RGB)
 
 	def __del__(self):
-		if self.vid and self.vid.isOpened():
-			self.vid.release()
+		if hasattr(self, "vid"):
+			if self.vid.isOpened():
+				self.vid.release()

@@ -2,41 +2,35 @@ import argparse
 import importlib
 import logging
 import pathlib
-import threading
-import time
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
 from typing import Optional
 from typing import Type
 
-import serial
-import yaml
-
 import lib
 from lib import Button
-from lib import Capture
+from lib import Color
+from lib import DB
+from lib import LOADING_SCREEN_POS
 from lib import log
+from lib import Pos
 from lib.pokemon import ExecShiny
-from lib.pokemon import Langs
+from lib.pokemon import PokemonRunner
+from lib.pokemon import RunnerAction
 from lib.pokemon.bdsp import BDSPScript
 
 
 _scripsPath = pathlib.Path(__file__).parent
 _scripts = tuple(
-	map(
-		lambda s: s.name[:-3],
-		filter(
-			lambda s: s.is_file() and not s.name.startswith("_") and s.name.endswith(".py"),
-			_scripsPath.iterdir(),
-		),
-	),
+	s.name[:-3] for s in filter(
+		lambda p: p.is_file() and not p.name.startswith("_") and p.name.endswith(".py"),
+		_scripsPath.iterdir(),
+	)
 )
 
 
 Parser = argparse.ArgumentParser(add_help=False)
-Parser.add_argument("-l", "--lang", action="store", choices=Langs, default=None, dest="tempLang", help="override lang for this run only (instead of using the one from config)")
-
 _ScriptsParser = Parser.add_subparsers(dest="script")
 for script in _scripts:
 	try:
@@ -53,183 +47,180 @@ def _stripTD(delta: timedelta) -> timedelta:
 	return timedelta(days=delta.days, seconds=delta.seconds)
 
 
-def printStats(
-	script: BDSPScript,
-	scriptStart: datetime,
-	crashes: int,
-	encounters: tuple[int, int],
-	stopAt: Optional[int],
-	lastDuration: timedelta,
-) -> None:
-	now = datetime.now()
-	runDuration = _stripTD(now - scriptStart)
+class Runner(PokemonRunner):
+	def __init__(self, scriptClass: Type[BDSPScript], args: dict[str, Any], db: DB) -> None:
+		self.script: BDSPScript
+		super().__init__(scriptClass, args, db)
 
-	encCurrent, encTotoal = encounters
+		self.sendNth: int = args.pop("sendNth")
 
-	avg = _stripTD(runDuration / (encCurrent or 1))
+		encountersStart: int = self.db.getOrInsert(self.key, 0)
 
-	stats: list[tuple[str, Any]] = [
-		("Target", script.target),
-		("Running for", runDuration),
-		("Average per reset", avg),
-		("Encounter", f"{encCurrent:>04}/{encTotoal:>05}"),
-		("Crashes", crashes),
-	]
+		stopAt: Optional[int] = args.pop("stopAt")
+		if stopAt is not None:
+			if stopAt <= encountersStart:
+				stopAt = None
+			else:
+				log(logging.INFO, f"running until encounters reach {stopAt}")
 
-	if stopAt is not None:
-		remainingEncounters = stopAt - encTotoal
-		remainingTime = _stripTD(avg * remainingEncounters)
-		estEnd = scriptStart + remainingTime
+		self.encountersTotal = encountersStart
+		self.encountersCurrent = 0
 
-		stats.extend((
-			("Stop at", stopAt),
-			("Remaining", remainingEncounters),
-			("Est. time remaining", remainingTime),
-			("Est. end", estEnd.strftime("%Y/%m/%d - %H:%M:%S")),
-		))
+		self.stopAt = stopAt
 
-	if script.showLastRunDuration is True:
-		stats.append(("Last run duration", _stripTD(lastDuration)))
+		self.scriptStart = datetime.now()
 
-	if script.showBnp is True:
-		bnp = (1 - ((4095 / 4096) ** encTotoal)) * 100
-		stats.append(("B(n, p)", f"{bnp:.2f}%"))
+		self.crashes = 0
+		self.lastDuration = timedelta(0, 0)
 
-	stats.extend(script.extraStats)
+		self.runStart = datetime.now()
 
-	maxStatLen = max(len(s[0]) for s in stats) + 2
+	def __del__(self) -> None:
+		self.serial.close()
 
-	print("\033c", end="")
-	for info, stat in stats:
-		if isinstance(stat, float):
-			stat = f"{stat:.3f}"
-		print(f"{(info + ':').ljust(maxStatLen)} {stat}")
-	print()
+	@property
+	def key(self) -> str:
+		return f"pokemon.bdsp.{self.script.target.lower()}"
 
+	@property
+	def encounters(self) -> int:
+		return self.encountersTotal
 
-def run(scriptClass: Type[BDSPScript], args: dict[str, Any], encountersStart: int) -> int:
-	log(logging.INFO, f"start encounters: {encountersStart}")
-	with open(args.pop("configFile"), "r") as f:
-		cfg: dict[str, Any] = yaml.safe_load(f)
+	def idle(self) -> None:
+		self.script.waitAndRender(5)
 
-	sendNth: int = args.pop("sendNth")
+	def run(self) -> None:
+		self.runStart = datetime.now()
+		self.encountersTotal, encFrame = self.script(self.encountersTotal)
 
-	stopAt: Optional[int] = args.pop("stopAt")
-	if stopAt is not None:
-		if stopAt <= encountersStart:
-			stopAt = None
-		else:
-			log(logging.INFO, f"running until encounters reach {stopAt}")
+		if (
+			self.script.sendAllEncounters is True or (
+				self.script.sendAllEncounters is False and
+				self.sendNth >= 2 and
+				self.encountersCurrent % self.sendNth == 0
+			)
+		):
+			self.script.logDebug("send screenshot")
+			self.script.sendScreenshot(encFrame)
 
-	with serial.Serial(cfg.pop("serialPort", "COM0"), 9600) as ser, lib.shh(ser):
-		log(logging.INFO, "setting up cv2. This may take a while...")
-		cap = Capture(
-			width=768,
-			height=480,
-			fps=30,
-		)
+	def runPost(self) -> None:
+		self.lastDuration = datetime.now() - self.runStart
+		self._runs.append(self.lastDuration)
+		self.encountersCurrent += 1
 
-		ser.write(b"0")
-		time.sleep(0.1)
+		if self.stopAt is not None and self.encountersTotal >= self.stopAt:
+			self.script.logInfo(f"reached target of {self.stopAt} encounters")
+			raise lib.ExecStop(self.encountersTotal)
 
-		encounters = encountersStart
+	def onCrash(self, crash: lib.ExecCrash) -> RunnerAction:
+		self.crashes += 1
 
-		script = scriptClass(ser, cap, cfg, **args, windowName="Pokermans")
-		script.sendMsg("Script started")
-		log(logging.INFO, "script started")
-		script.waitAndRender(1)
+		self.script.log(logging.WARNING, "script crashed, reset state and press Ctrl+C to continue")
+		self.script.sendMsg("Script crashed!")
+		self.script.idle()
 
-		crashes = 0
-		currentEncounters = 0
-		lastDuration = timedelta(0, 0)
+		self.script.waitAndRender(1)
+
+		return RunnerAction.Continue
+
+	def onLock(self, lock: lib.ExecLock) -> RunnerAction:
+		self.crashes += 1
+
+		frame = self.script.getframe()
+		if all(
+			frame.colorAt(Pos(x, y)).distance(Color.Black()) == 0
+			for x, y in ((420, 69), (150, 100), (555, 111), (111, 333))
+		) and sum(
+			frame.colorAt(Pos(x, y)).distance(Color.White()) <= 75
+			for x, y in ((360, 90), (360, 100), (370, 60), (376, 80), (376, 99))
+		) >= 2:
+			self.script.log(logging.WARNING, "Game crashed. Resolving..")
+			self.script.press(Button.BUTTON_A)
+			self.script.waitAndRender(1)
+			self.script.whileNotColor(LOADING_SCREEN_POS, Color.Black(), 0.5, lambda: self.script.press(Button.BUTTON_A))
+			return RunnerAction.Continue
+		del frame
+
+		ctx = f" (context: {lock.ctx})" if lock.ctx is not None else ""
+		msg = f"script locked up{ctx}"
+
+		self.script.sendMsg(msg)
+		self.script.log(logging.WARNING, msg)
+		self.script.log(logging.WARNING, "reset state and press Ctrl+C to continue")
 
 		try:
-			scriptStart = datetime.now()
-
 			while True:
-				printStats(script, scriptStart, crashes, (currentEncounters, encounters), stopAt, lastDuration)
+				self.script.waitAndRender(5)
+		except KeyboardInterrupt:
+			pass
 
-				runStart = datetime.now()
-				try:
-					encounters, encounterFrame = script(encounters)
-				except lib.ExecLock as e:
-					ctx = f" (context: {e.ctx})" if e.ctx is not None else ""
-					msg = f"script locked up{ctx}"
-					script.log(logging.WARNING, msg)
-					script.sendMsg(msg)
+		self.script.waitAndRender(1)
 
-					script.log(logging.WARNING, "check switch status and press ctrl+c to continue")
+		return RunnerAction.Continue
 
-					try:
-						while True:
-							script.waitAndRender(3)
-					except KeyboardInterrupt:
-						pass
-					crashes += 1
-					continue
-				except lib.ExecCrash:
-					script.log(logging.WARNING, "script crashed, reset switch to home screen and press ctrl+c to continue")
-					script.sendMsg("script crashed!")
-					try:
-						while True:
-							script.waitAndRender(5)
-					except KeyboardInterrupt:
-						pass
-					script.waitAndRender(1)
-					script.pressN(Button.BUTTON_A, 5, 1.5)
-					crashes += 1
-					continue
-				except ExecShiny as shiny:
-					if isinstance(script, BDSPScript):
-						name = script.getName()
-						if name is not None:
-							name = f"SHINY {name}"
-						else:
-							name = "SHINY"
+	def onShiny(self, shiny: ExecShiny) -> RunnerAction:
+		name = ("SHINY " + (self.script.getName() or "")).strip()
 
-						msg = f"found a {name}!"
-					else:
-						msg = "found a SHINY!"
+		msg = f"found a {name.strip()} after {self.encountersTotal} encounters!"
 
-					log(logging.INFO, msg)
-					script.sendMsg(msg)
+		print("\a")
 
-					script.sendScreenshot(shiny.encounterFrame)
+		self.script._maxDelay = True
+		self.script.logInfo(msg)
+		self.script.sendMsg(msg)
+		self.script.sendScreenshot(shiny.encounterFrame)
 
-					try:
-						while True:
-							script.waitAndRender(3)
-					except KeyboardInterrupt:
-						cmd = input("continue? (y/n)")
-						if cmd.lower() not in ("y", "yes"):
-							raise lib.ExecStop(shiny.encounter + 1)
-				else:
-					if script.sendAllEncounters is False and sendNth >= 2 and currentEncounters % sendNth == 0:
-						log(logging.DEBUG, "send screenshot")
-						script.sendScreenshot(encounterFrame)
-					elif script.sendAllEncounters is True:
-						log(logging.DEBUG, "send screenshot")
-						script.sendScreenshot(encounterFrame)
-				finally:
-					currentEncounters += 1
-					lastDuration = datetime.now() - runStart
+		self.encountersTotal = shiny.encounter
+		try:
+			print("Press Ctrl+C for further actions")
+			while True:
+				self.script.waitAndRender(5)
+		except KeyboardInterrupt:
+			if input("continue? (y/n)").strip().lower() not in ("y", "yes"):
+				return RunnerAction.Stop
+			else:
+				return RunnerAction.Continue
 
-					if stopAt is not None and encounters >= stopAt:
-						log(logging.INFO, f"reached target of {stopAt} encounters")
-						log(logging.INFO, "stoppping script")
-						break
-		except lib.ExecStop as e:
-			if e.encounters is not None:
-				encounters = e.encounters
-			log(logging.INFO, "script stopped")
-		except (KeyboardInterrupt, EOFError):
-			log(logging.INFO, "script stopped")
-		except Exception as e:
-			s = f"Program crashed: {e}"
-			script.sendMsg(s)
-			log(logging.ERROR, s)
-		finally:
-			ser.write(b"0")
-			return encounters
+	@property
+	def stats(self) -> tuple[tuple[str, Any]]:
+		now = datetime.now()
+		runDuration = now - self.scriptStart
 
-	raise AssertionError("unreachable")
+		if len(self.runs) != 0:
+			avg = timedelta(seconds=sum(r.total_seconds() for r in self.runs) / len(self.runs))
+		else:
+			avg = timedelta(days=0, seconds=0)
+
+		stats: list[tuple[str, Any]] = [
+			("Target", self.script.target),
+			("Running for", _stripTD(runDuration)),
+			("Average per reset", _stripTD(avg)),
+			("Encounters", f"{self.encountersCurrent:>04}/{self.encountersTotal:>05}"),
+			("Crashes", self.crashes),
+		]
+
+		if self.stopAt is not None:
+			remainingEncounters = self.stopAt - self.encountersTotal
+			remainingTime = avg * remainingEncounters
+			estEnd = now + remainingTime
+
+			stats.extend((
+				("Stop at", self.stopAt),
+				("Remaining", remainingEncounters),
+				("Est. time remaining", _stripTD(remainingTime)),
+				("Est. end", estEnd.strftime("%Y/%m/%d - %H:%M:%S")),
+			))
+
+		if self.script.showLastRunDuration is True:
+			stats.append(("Last run duration", _stripTD(self.lastDuration)))
+
+		if self.script.showBnp is True:
+			stats.append(("B(n, p)", f"{((1 - ((4095 / 4096) ** self.encountersTotal)) * 100):.2f}%"))
+
+		stats.extend(self.script.extraStats)
+
+		return tuple(stats)
+
+	@property
+	def runs(self) -> list[timedelta]:
+		return self._runs

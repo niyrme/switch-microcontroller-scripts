@@ -1,5 +1,6 @@
+mergedeep
 numpy
-opencv-contrib-python
+opencv-python
 pyserial
 pytesseract
 pyyaml

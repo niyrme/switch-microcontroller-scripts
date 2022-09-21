@@ -6,7 +6,7 @@ A repo containing my scripts running on the base of [this repository](https://gi
 
 ## Requirements
 - Everything from the repo linked above (buzzer is optional)
-- Python (I'm using 3.9; maybe older ones work as well, but don't complain if they don't)
+- Python 3.9 (maybe 3.8 works too)
 - A capture card (to get a video signal from the Switch to the PC)
 
 

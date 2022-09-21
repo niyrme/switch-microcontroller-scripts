@@ -1,7 +1,6 @@
 import argparse
 import importlib
 import logging
-import os
 import pathlib
 
 from lib import log
@@ -54,9 +53,7 @@ def main() -> int:
 
 		log(logging.INFO, f"sending screenshot of every {Nth}{m} encounter")
 
-	gameName: str = args.pop("game")
-
-	runnerPath = f"scripts.{gameName}._runner"
+	runnerPath = f"scripts.{args.pop('game')}._runner"
 
 	try:
 		return importlib.import_module(runnerPath).run(args)
@@ -69,6 +66,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-	os.makedirs("logs", exist_ok=True)
-
 	raise SystemExit(main())

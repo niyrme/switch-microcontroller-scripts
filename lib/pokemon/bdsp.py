@@ -1,10 +1,10 @@
 import difflib
-import logging
 import sys
 import time
 from abc import abstractmethod
 from itertools import cycle
 from typing import Any
+from typing import final
 from typing import Optional
 
 import cv2
@@ -13,6 +13,7 @@ import serial
 
 from . import ExecShiny
 from . import LOG_DELAY
+from . import PokemonScript
 from lib import Button
 from lib import Capture
 from lib import Color
@@ -21,7 +22,6 @@ from lib import ExecLock
 from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib import Pos
-from lib.pokemon import PokemonScript
 
 
 ENCOUNTER_DIALOG_POS_1 = Pos(55, 400)
@@ -38,11 +38,6 @@ class BDSPScript(PokemonScript):
 	def main(self, e: int) -> tuple[int, Frame]:
 		raise NotImplementedError
 
-	@staticmethod
-	@abstractmethod
-	def requirements() -> tuple[str, ...]:
-		raise NotImplementedError
-
 	def __init__(self, ser: serial.Serial, cap: Capture, config: dict[str, Any], **kwargs) -> None:
 		super().__init__(ser, cap, config, **kwargs)
 
@@ -53,14 +48,14 @@ class BDSPScript(PokemonScript):
 		self.showBnp: bool = self.configBDSP.pop("showBnp", False)
 
 		self._showMaxDelay: bool = self.configBDSP.pop("showMaxDelay", False)
-		self._maxDelay: float = 0
+		self._maxDelay: float = 0.0
 
 		self._showLastDelay: bool = self.configBDSP.pop("showLastDelay", False)
-		self._lastDelay: float = 0
+		self._lastDelay: float = 0.0
 
 	@property
 	def extraStats(self) -> tuple[tuple[str, Any], ...]:
-		s = []
+		s: list[tuple[str, Any]] = []
 		if self._showLastDelay is True: s.append(("Last delay", f"{self._lastDelay}s"))
 		if self._showMaxDelay is True: s.append(("Max delay", f"{self._maxDelay}s"))
 		return super().extraStats + tuple(s)
@@ -94,7 +89,6 @@ class BDSPScript(PokemonScript):
 
 		diff = round(time.time() - t0, 3)
 		self._lastDelay = diff
-		self._maxDelay = max(self._maxDelay, diff)
 
 		self.log(LOG_DELAY, f"dialog delay: {diff:.3f}s")
 		print(f"dialog delay: {diff}s")
@@ -106,6 +100,7 @@ class BDSPScript(PokemonScript):
 		elif diff >= 89:
 			raise ExecLock("checking shiny dialog timed out")
 		else:
+			self._maxDelay = max(self._maxDelay, diff)
 			return encounterFrame
 
 	def awaitInGame(self) -> None:
@@ -117,8 +112,7 @@ class BDSPScript(PokemonScript):
 
 		self.waitAndRender(1)
 
-		frame = self.getframe()
-		if frame.colorAt(LOADING_SCREEN_POS) == Color(41, 41, 41):
+		if self.getframe().colorAt(LOADING_SCREEN_POS) == Color(41, 41, 41):
 			raise ExecCrash
 
 		self.press(Button.BUTTON_A)
@@ -208,8 +202,8 @@ class BDSPScript(PokemonScript):
 				_directions = cycle(("a", "d"))
 				self.logDebug("go for encounter")
 				tEnd = time.time() + 2
-				frame = self.getframe()
-				while frame.colorAt(LOADING_SCREEN_POS) != Color.White():
+
+				while (frame := self.getframe()).colorAt(LOADING_SCREEN_POS) != Color.White():
 					if time.time() > tEnd:
 						self._ser.write(next(_directions).encode())
 						tEnd = time.time() + 0.5
@@ -223,7 +217,6 @@ class BDSPScript(PokemonScript):
 							self.press(Button.BUTTON_A)
 						self.waitAndRender(1)
 						self.press(Button.BUTTON_A, 0.5)
-					frame = self.getframe()
 
 				print("encounter!")
 
@@ -235,6 +228,7 @@ class BDSPScript(PokemonScript):
 				self.press(Button.L_UP, 2)
 				self.press(Button.L_DOWN, 2.1)
 
+	@final
 	def runFromEncounter(self) -> None:
 		self.logDebug("run from encounter")
 		while True:
@@ -258,12 +252,14 @@ class BDSPScript(PokemonScript):
 		self.waitAndRender(1)
 
 	def getName(self) -> Optional[str]:
-		self.waitAndRender(15)
 		frame = cv2.cvtColor(self.getframe().ndarray, cv2.COLOR_BGR2GRAY)
+		cv2.imwrite("logs/shinyFrame.png", frame)
 		crop = frame[30:54, 533:641]
-		text = pytesseract.image_to_string(crop)
+		cv2.imwrite("logs/crop.png", crop)
+		text = (pytesseract.image_to_string(crop)).strip()
 
 		try:
-			return difflib.get_close_matches(str(text).strip(), self._names, n=1)[0]
+			return difflib.get_close_matches(text, self._names, n=1)[0]
 		except IndexError:
+			self.logDebug(f'Failed to parse name from "{text}"')
 			return None

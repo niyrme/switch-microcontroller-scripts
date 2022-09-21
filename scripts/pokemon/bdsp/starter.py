@@ -17,28 +17,32 @@ from lib.pokemon.bdsp import OWN_POKEMON_POS
 _Requirements: tuple[str, ...] = ("Stand in front of transition into Lake Verity",)
 Parser = argparse.ArgumentParser(add_help=False)
 Parser.add_argument("-r", "--requriements", action=RequirementsAction, help="print out the requirements for a script", requirements=_Requirements)
-Parser.add_argument("starter", type=int, choices=(1, 2, 3), help="which starter to reset (1: Turtwig, 2: Chimchar, 3: Piplup)")
+Parser.add_argument("target", type=str, choices=("Chimchar", "Piplup", "Turtwig"), help="starter to reset for")
 
 
 class Script(BDSPScript):
 	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 
-		self._starter = int(kwargs.pop("starter"))
-		self._starterName = ("Turtwig", "Chimchar", "Piplup")[self._starter - 1]
+		self._target = kwargs.pop("target")
+		self._starterOffset = {
+			"Turtwig": 0,
+			"Chimchar": 1,
+			"Piplup": 2,
+		}[self._target]
 
 	@property
 	def extraStats(self) -> tuple[tuple[str, Any], ...]:
 		return super().extraStats + (
-			("Resetting for", self._starterName),
+			("Resetting for", self._target),
 		)
 
 	@property
 	def target(self) -> str:
-		return self._starterName
+		return self._target
 
 	def getName(self) -> Optional[str]:
-		self._starterName
+		return self._target
 
 	def main(self, e: int) -> tuple[int, Frame]:
 		self.resetGame()
@@ -60,7 +64,7 @@ class Script(BDSPScript):
 		print("select starter")
 		self.press(Button.BUTTON_B)
 		self.waitAndRender(2)
-		self.pressN(Button.L_RIGHT, self._starter - 1, 1, 0.2, render=True)
+		self.pressN(Button.L_RIGHT, self._starterOffset, 1, 0.2, render=True)
 
 		self.press(Button.BUTTON_A)
 		self.waitAndRender(2)

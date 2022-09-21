@@ -31,5 +31,8 @@ class Button(Enum):
 	R_DOWN_RIGHT = "m"
 	R_DOWN = "j"
 
+	def __str__(self) -> str:
+		return self.value
+
 	def encode(self) -> bytes:
 		return str(self.value).encode()

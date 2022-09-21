@@ -1,19 +1,20 @@
 import logging
-from datetime import datetime
 
 
-_defaultFmt = logging.Formatter("[%(levelname)s] %(asctime)s %(message)s", "%Y/%m/%d-%H:%M:%S")
+_streamFmt = logging.Formatter("[%(levelname)s] %(asctime)s %(message)s", "%H:%M:%S")
+_fileFmt = logging.Formatter(
+	'{ "level": "%(levelname)s", "timestamp": "%(asctime)s", "msg": "%(message)s" }',
+	datefmt="%Y/%m/%d-%H:%M:%S",
+)
 
 _streamHDLR = logging.StreamHandler()
-_streamHDLR.setFormatter(_defaultFmt)
+_streamHDLR.setFormatter(_streamFmt)
 
-_debugFileHDLR = logging.FileHandler("logs/debug.log", "w+")
-_debugFileHDLR.setFormatter(_defaultFmt)
+_debugFileHDLR = logging.FileHandler("debug.log", "w+")
+_debugFileHDLR.setFormatter(_fileFmt)
 
-_now = datetime.now()
-_fileHDLR = logging.FileHandler(f"logs/switchcontroller-({_now.strftime('%Y-%m-%d')})-({_now.strftime('%H-%M-%S')}).log", "w+")
-_fileHDLR.setFormatter(_defaultFmt)
-del _now
+_infoFileHDLR = logging.FileHandler("switchController.log", "a+")
+_infoFileHDLR.setFormatter(_fileFmt)
 
 _debugLogger = logging.getLogger("DEBUG")
 _debugLogger.addHandler(_debugFileHDLR)
@@ -24,7 +25,7 @@ logging.addLevelName(LOG_TRACE, "TRACE")
 
 _infoLogger = logging.getLogger("INFO")
 _infoLogger.addHandler(_streamHDLR)
-_infoLogger.addHandler(_fileHDLR)
+_infoLogger.addHandler(_infoFileHDLR)
 _infoLogger.setLevel(logging.INFO)
 
 
@@ -43,8 +44,8 @@ def log(level: int, msg: str) -> None:
 def addTrace() -> None:
 	global LOGGERS
 
-	_traceFileHDLR = logging.FileHandler("logs/_trace.log", "w+")
-	_traceFileHDLR.setFormatter(_defaultFmt)
+	_traceFileHDLR = logging.FileHandler("trace.log", "w+")
+	_traceFileHDLR.setFormatter(_fileFmt)
 
 	_traceLogger = logging.getLogger("TRACE")
 	_traceLogger.addHandler(_traceFileHDLR)

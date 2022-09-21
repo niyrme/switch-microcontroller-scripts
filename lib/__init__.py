@@ -9,12 +9,10 @@ import time
 from abc import abstractmethod
 from collections.abc import Generator
 from collections.abc import Sequence
-from datetime import datetime
 from typing import Any
 from typing import Callable
 from typing import final
 from typing import TypeVar
-from typing import Union
 
 import cv2
 import serial
@@ -27,10 +25,11 @@ from ._color import Color as Color
 from ._frame import Frame as Frame
 from ._logging import log as log
 from ._logging import LOG_TRACE as LOG_TRACE
-from ._logging import LOGGERS as LOGGERS
+from ._logging import LOGGERS as LOGGERS  # noqa: F401
 from ._pos import LOADING_SCREEN_POS as LOADING_SCREEN_POS
 from ._pos import Pos as Pos
-from .exceptions import ExecCrash as ExecCrash
+from .db import DB as DB  # noqa: F401
+from .exceptions import ExecCrash as ExecCrash  # noqa: F401
 from .exceptions import ExecLock as ExecLock
 from .exceptions import ExecStop as ExecStop
 
@@ -70,11 +69,6 @@ class RequirementsAction(argparse.Action):
 
 
 class Script:
-	@staticmethod
-	@abstractmethod
-	def requirements() -> tuple[str, ...]:
-		raise NotImplementedError
-
 	def __init__(self, ser: serial.Serial, cap: Capture, config: dict[str, Any], **kwargs) -> None:
 		self._ser = ser
 		self._cap = cap
@@ -106,9 +100,11 @@ class Script:
 	def logInfo(self, msg: str) -> None:
 		self.log(logging.INFO, msg)
 
+	@final
 	def logTrace(self, msg: str) -> None:
 		self.log(LOG_TRACE, msg)
 
+	@final
 	def getframe(self) -> Frame:
 		frame = self._cap.read()
 
@@ -120,10 +116,20 @@ class Script:
 		else:
 			return frame
 
-	def press(self, s: Union[str, Button], duration: float = 0.05, render: bool = False) -> None:
-		self.logDebug(f"press '{s}' for {duration}s")
+	@final
+	def idle(self) -> None:
+		self._ser.write(b"0")
+		try:
+			while True:
+				self.getframe()
+		except KeyboardInterrupt:
+			pass
 
-		self._ser.write(s.encode())
+	@final
+	def press(self, button: Button, duration: float = 0.05, render: bool = False) -> None:
+		self.logTrace(f"press {button=} | {duration=}s")
+
+		self._ser.write(button.encode())
 		if render is True or duration >= 0.5:
 			tEnd = time.time() + duration
 			while time.time() < tEnd:
@@ -134,22 +140,25 @@ class Script:
 		self._ser.write(b"0")
 		time.sleep(0.075)
 
-	def pressN(self, s: Union[str, Button], n: int, delay: float, duration: float = 0.05, render: bool = False) -> None:
-		self.logDebug(f"press '{s}' {n} times for {duration}s (delay: {delay}s)")
+	@final
+	def pressN(self, button: Button, n: int, delay: float, duration: float = 0.05, render: bool = False) -> None:
+		self.logTrace(f"pressN {button=} | {duration=} | {n=} | {delay=}")
 
 		for _ in range(n):
-			self.press(s, duration, render)
+			self.press(button, duration, render)
 			if render is True:
 				self.waitAndRender(delay)
 			else:
 				time.sleep(delay)
 
+	@final
 	def waitAndRender(self, duration: float) -> None:
-		self.logDebug(f"wait for {duration}")
+		self.logTrace(f"waitAndRender {duration=}")
 		tEnd = time.time() + duration
 		while time.time() < tEnd:
 			self.getframe()
 
+	@final
 	def alarm(self) -> None:
 		for _ in range(3):
 			self._ser.write(b"!")
@@ -157,28 +166,28 @@ class Script:
 			self._ser.write(b".")
 			self.waitAndRender(0.4)
 
+	@final
 	def nearColor(self, current: Color, expected: Color, distance: int = 75) -> bool:
 		return current.distance(expected) <= distance
 
+	@final
 	def awaitColor(self, pos: Pos, color: Color, timeout: float = 90) -> None:
-		frame = self.getframe()
 		tEnd = time.time() + timeout
-		while frame.colorAt(pos) != color:
+		while (frame := self.getframe()).colorAt(pos) != color:
 			if time.time() > tEnd:
 				raise ExecLock(
 					f"did not find color ({color}) at ({pos});"
 					f"color in last frame: {frame.colorAt(pos)}",
 				)
-			frame = self.getframe()
 
+	@final
 	def awaitNotColor(self, pos: Pos, color: Color, timeout: float = 90) -> None:
-		frame = self.getframe()
 		tEnd = time.time() + timeout
-		while frame.colorAt(pos) == color:
+		while self.getframe().colorAt(pos) == color:
 			if time.time() > tEnd:
 				raise ExecLock(f"did not find not color ({color}) at ({pos})")
-			frame = self.getframe()
 
+	@final
 	def awaitColors(self, colors: tuple[tuple[Pos, Color], ...], timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
@@ -192,6 +201,7 @@ class Script:
 				raise ExecLock(f"did not find colors ({(f'{c} at {p}' for p, c in colors)})")
 			frame = self.getframe()
 
+	@final
 	def awaitNotColors(self, colors: tuple[tuple[Pos, Color], ...], timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
@@ -201,34 +211,33 @@ class Script:
 				raise ExecLock
 			frame = self.getframe()
 
+	@final
 	def awaitFlash(self, pos: Pos, color: Color, timeout: float = 90) -> None:
 		self.awaitColor(pos, color, timeout)
 		self.awaitNotColor(pos, color, timeout)
 
+	@final
 	def awaitNearColor(self, pos: Pos, color: Color, distance: int = 75, timeout: float = 90) -> None:
 		tEnd = time.time() + timeout
-		frame = self.getframe()
-		while not self.nearColor(frame.colorAt(pos), color, distance):
-			_color = frame.colorAt(pos)
-			self.logTrace(f"Pos: {str(pos):<12} | Color: {str(_color):<16} | Distance {_color.distance(color)}")
+		while not self.nearColor((frame := self.getframe()).colorAt(pos), color, distance):
+			self.logTrace(f"Pos: {str(pos):<12} | Color: {str((_color := frame.colorAt(pos))):<16} | Distance {_color.distance(color)}")
 			if time.time() > tEnd:
 				raise ExecLock(
 					f"did not find near color ({color}) at ({pos}) (distance: {distance});"
 					f"color in last frame: {frame.colorAt(pos)} (distance: {frame.colorAt(pos).distance(color)})",
 				)
-			frame = self.getframe()
 
+	@final
 	def awaitNotNearColor(self, pos: Pos, color: Color, distance: int = 75, timeout: float = 90) -> None:
 		tEnd = time.time() + timeout
-		frame = self.getframe()
-		while self.nearColor(frame.colorAt(pos), color, distance):
+		while self.nearColor((frame := self.getframe()).colorAt(pos), color, distance):
 			if time.time() > tEnd:
 				raise ExecLock(
 					f"did not find not near color ({color}) at ({pos}) (distance: {distance});"
 					f"color in last frame: {frame.colorAt(pos)} (distance: {frame.colorAt(pos).distance(color)})",
 				)
-			frame = self.getframe()
 
+	@final
 	def awaitNearColors(self, colors: tuple[tuple[Pos, Color], ...], distance: int = 75, timeout: float = 90) -> None:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
@@ -244,13 +253,12 @@ class Script:
 				raise ExecLock(f"did not find near colors ({(f'{c} at {p}' for p, c in colors)}) (distance: {distance})")
 			frame = self.getframe()
 
+	@final
 	def whileColor(self, pos: Pos, color: Color, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
-		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
-		while frame.colorAt(pos) == color.tpl:
-			t = time.time()
-			if t > tEnd:
+		while (frame := self.getframe()).colorAt(pos) == color.tpl:
+			if (t := time.time()) > tEnd:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
@@ -258,28 +266,24 @@ class Script:
 					f"did not find color ({color}) at ({pos});"
 					f"color in last frame: {frame.colorAt(pos)}",
 				)
-			frame = self.getframe()
 
+	@final
 	def whileNotColor(self, pos: Pos, color: Color, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
-		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
-		while frame.colorAt(pos) != color.tpl:
-			t = time.time()
-			if t > tEnd:
+		while self.getframe().colorAt(pos) != color.tpl:
+			if (t := time.time()) > tEnd:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
 				raise ExecLock(f"did not find not color ({color}) at ({pos})")
-			frame = self.getframe()
 
+	@final
 	def whileNearColor(self, pos: Pos, color: Color, distance: int, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
-		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
-		while self.nearColor(frame.colorAt(pos), color, distance):
-			t = time.time()
-			if t > tEnd:
+		while self.nearColor((frame := self.getframe()).colorAt(pos), color, distance):
+			if (t := time.time()) > tEnd:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
@@ -287,15 +291,13 @@ class Script:
 					f"did not find near color ({color}) at ({pos}) (distance: {distance});"
 					f" color in last frame: {frame.colorAt(pos)} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame.colorAt(pos), color.tpl))})",
 				)
-			frame = self.getframe()
 
+	@final
 	def whileNotNearColor(self, pos: Pos, color: Color, distance: int, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
-		frame = self.getframe()
 		tEnd = time.time()
 		tStop = time.time() + timeout
-		while not self.nearColor(frame.colorAt(pos), color, distance):
-			t = time.time()
-			if t > tEnd:
+		while not self.nearColor((frame := self.getframe()).colorAt(pos), color, distance):
+			if (t := time.time()) > tEnd:
 				fn()
 				tEnd = time.time() + delay
 			elif t > tStop:
@@ -303,8 +305,8 @@ class Script:
 					f"did not find not near color ({color}) as ({pos}) (distance: {distance});"
 					f" color in last frame: {frame.colorAt(pos)} (distance: {sum((c2 - c1) ** 2 for c1, c2 in zip(frame.colorAt(pos), color.tpl))})",
 				)
-			frame = self.getframe()
 
+	@final
 	def resetGame(self) -> None:
 		self.logDebug("reset game")
 		self.press(Button.BUTTON_HOME)
@@ -313,16 +315,19 @@ class Script:
 		self.waitAndRender(1)
 		self.whileNotColor(LOADING_SCREEN_POS, Color.Black(), 0.5, lambda: self.press(Button.BUTTON_A))
 
+	@final
 	def _sendTelegram(self, **kwargs) -> None:
 		try:
 			telegram_send.send(**kwargs)
 		except telegram.error.NetworkError as e:
 			self.log(logging.WARNING, f"telegram_send: connection failed: {e}")
 
+	@final
 	def sendMsg(self, msg: str) -> None:
 		self.logDebug(f"send telegram message: '{msg}'")
 		self._sendTelegram(messages=(msg,))
 
+	@final
 	def sendScreenshot(self, frame: Frame) -> None:
 		with tempfile.TemporaryDirectory() as tempDirName:
 			p = f"{tempDirName}/screenshot.png"

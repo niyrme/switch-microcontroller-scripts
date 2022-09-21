@@ -1,5 +1,4 @@
 import argparse
-import logging
 from typing import Optional
 
 import lib
@@ -47,8 +46,7 @@ class Script(BDSPScript):
 			f = self.getframe()
 			if not all(f.colorAt(p).distance(c) <= 32 for p, c in _DIALOG_POS_COLS):
 				while True:
-					do = input("continue here? (y/yes | n/no)").lower()
-					if do in ("y", "yes"):
+					if (do := input("continue here? (y/yes | n/no)").lower()) in ("y", "yes"):
 						break
 					elif do in ("n", "no"):
 						raise

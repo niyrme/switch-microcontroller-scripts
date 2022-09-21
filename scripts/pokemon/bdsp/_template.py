@@ -7,7 +7,7 @@ from lib.pokemon.bdsp import BDSPScript
 
 _Requirements: tuple[str, ...] = ()
 Parser = argparse.ArgumentParser(add_help=False)
-Parser.add_argument("-r", "--requriements", action=RequirementsAction, help="print out the requirements for a script", requirements=_Requirements)
+Parser.add_argument("-r", "--requriements", action=RequirementsAction, help="<TODO>", requirements=_Requirements)
 
 
 class Script(BDSPScript):
