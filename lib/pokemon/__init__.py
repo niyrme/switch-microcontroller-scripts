@@ -1,7 +1,6 @@
 import logging
 import pathlib
 from abc import abstractmethod
-from datetime import timedelta
 from enum import IntEnum
 from typing import Any
 from typing import final
@@ -78,7 +77,7 @@ class PokemonRunner:
 
 		self.script = self._setup(scriptClass, cfg, args)
 
-		self._runs: list[timedelta] = []
+		self._runs: list[float] = []
 
 	def _setup(self, scriptClass: Type[PokemonScript], config: dict[str, Any], args: dict[str, Any]) -> PokemonScript:
 		log(logging.INFO, "setting up cv2. This may take a while...")
@@ -138,5 +137,5 @@ class PokemonRunner:
 		raise NotImplementedError
 
 	@property
-	def runs(self) -> list[timedelta]:
+	def runs(self) -> list[float]:
 		return self._runs

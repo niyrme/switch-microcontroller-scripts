@@ -105,7 +105,7 @@ class Runner(PokemonRunner):
 
 	def runPost(self) -> None:
 		self.lastDuration = datetime.now() - self.runStart
-		self._runs.append(self.lastDuration)
+		self._runs.append(self.lastDuration.total_seconds())
 		self.encountersCurrent += 1
 
 		if self.stopAt is not None and self.encountersTotal >= self.stopAt:
@@ -186,10 +186,7 @@ class Runner(PokemonRunner):
 		now = datetime.now()
 		runDuration = now - self.scriptStart
 
-		if len(self.runs) != 0:
-			avg = timedelta(seconds=sum(r.total_seconds() for r in self.runs) / len(self.runs))
-		else:
-			avg = timedelta(days=0, seconds=0)
+		avg = timedelta(seconds=sum(self.runs) / (len(self.runs) or 1))
 
 		stats: list[tuple[str, Any]] = [
 			("Target", self.script.target),
@@ -220,7 +217,3 @@ class Runner(PokemonRunner):
 		stats.extend(self.script.extraStats)
 
 		return tuple(stats)
-
-	@property
-	def runs(self) -> list[timedelta]:
-		return self._runs
