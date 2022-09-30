@@ -1,6 +1,7 @@
 import argparse
 import importlib
 import logging
+from datetime import datetime
 from typing import Any
 from typing import Optional
 from typing import Type
@@ -58,6 +59,8 @@ def _run(runnerClass: Type[PokemonRunner], scriptClass: Type[PokemonScript], arg
 	log(logging.INFO, "script started")
 	runner.script.sendMsg("Script started")
 
+	runner._scriptStart = datetime.now()
+
 	try:
 		while True:
 			action = None
@@ -91,10 +94,10 @@ def _run(runnerClass: Type[PokemonRunner], scriptClass: Type[PokemonScript], arg
 				raise lib.ExecStop(runner.encounters)
 	except lib.ExecStop as stop:
 		encounters: int = stop.encounters or runner.encounters
-		runner.db.set(runner.key, encounters)
+		runner.db.set(runner.key, {"encounters": encounters, "totalTime": round(runner.totalTime, 3)})
 	finally:
 		runner.script.press(Button.EMPTY)
-		log(logging.INFO, f"saved encounters: {runner.db.get(runner.key)}")
+		log(logging.INFO, f"saved encounters: {runner.db.get(f'{runner.key}.encounters')}")
 		log(logging.INFO, "script stopped")
 
 

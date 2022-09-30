@@ -4,6 +4,7 @@ import time
 from abc import abstractmethod
 from itertools import cycle
 from typing import Any
+from typing import Final
 from typing import final
 from typing import Optional
 
@@ -24,13 +25,13 @@ from lib import LOADING_SCREEN_POS
 from lib import Pos
 
 
-ENCOUNTER_DIALOG_POS_1 = Pos(55, 400)
-ENCOUNTER_DIALOG_POS_2 = Pos(670, 430)
-OWN_POKEMON_POS = Pos(5, 425)
-ROAMER_MAP_COLOR = Color(32, 60, 28)
-ROAMER_MAP_POS = Pos(340, 280)
-SHORT_DIALOG_POS_1 = Pos(154, 400)
-SHORT_DIALOG_POS_2 = Pos(560, 455)
+ENCOUNTER_DIALOG_POS_1: Final[Pos] = Pos(55, 400)
+ENCOUNTER_DIALOG_POS_2: Final[Pos] = Pos(670, 430)
+OWN_POKEMON_POS: Final[Pos] = Pos(5, 425)
+ROAMER_MAP_COLOR: Final[Color] = Color(32, 60, 28)
+ROAMER_MAP_POS: Final[Pos] = Pos(340, 280)
+SHORT_DIALOG_POS_1: Final[Pos] = Pos(154, 400)
+SHORT_DIALOG_POS_2: Final[Pos] = Pos(560, 455)
 
 
 class BDSPScript(PokemonScript):
@@ -41,16 +42,16 @@ class BDSPScript(PokemonScript):
 	def __init__(self, ser: serial.Serial, cap: Capture, config: dict[str, Any], **kwargs) -> None:
 		super().__init__(ser, cap, config, **kwargs)
 
-		self.configBDSP: dict[str, Any] = self.configPokemon.pop("bdsp")
+		self.configBDSP: Final[dict[str, Any]] = self.configPokemon.pop("bdsp")
 
-		self.sendAllEncounters: bool = self.configBDSP.pop("sendAllEncounters", False)
-		self.showLastRunDuration: bool = self.configBDSP.pop("showLastRunDuration", False)
-		self.showBnp: bool = self.configBDSP.pop("showBnp", False)
+		self.sendAllEncounters: Final[bool] = self.configBDSP.pop("sendAllEncounters", False)
+		self.showLastRunDuration: Final[bool] = self.configBDSP.pop("showLastRunDuration", False)
+		self.showBnp: Final[bool] = self.configBDSP.pop("showBnp", False)
 
-		self._showMaxDelay: bool = self.configBDSP.pop("showMaxDelay", False)
+		self._showMaxDelay: Final[bool] = self.configBDSP.pop("showMaxDelay", False)
 		self._maxDelay: float = 0.0
 
-		self._showLastDelay: bool = self.configBDSP.pop("showLastDelay", False)
+		self._showLastDelay: Final[bool] = self.configBDSP.pop("showLastDelay", False)
 		self._lastDelay: float = 0.0
 
 	@property
@@ -252,6 +253,20 @@ class BDSPScript(PokemonScript):
 		self.waitAndRender(1)
 
 	def getName(self) -> Optional[str]:
+		self.whileNotColors(
+			(
+				(OWN_POKEMON_POS, Color.White()),
+				(Pos(710, 50), Color.White()),
+				(Pos(636, 33), Color.White()),
+				(Pos(78, 444), Color.White()),
+				(Pos(155, 444), Color.White()),
+			),
+			0.5,
+			lambda: self.press(Button.BUTTON_B),
+		)
+
+		self.waitAndRender(1)
+
 		frame = cv2.cvtColor(self.getframe().ndarray, cv2.COLOR_BGR2GRAY)
 		cv2.imwrite("logs/shinyFrame.png", frame)
 		crop = frame[30:54, 533:641]

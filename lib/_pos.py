@@ -1,6 +1,9 @@
+from typing import Final
+from typing import final
 from typing import NamedTuple
 
 
+@final
 class Pos(NamedTuple):
 	x: int
 	y: int
@@ -9,4 +12,4 @@ class Pos(NamedTuple):
 		return f"({self.x}, {self.y})"
 
 
-LOADING_SCREEN_POS = Pos(705, 15)
+LOADING_SCREEN_POS: Final[Pos] = Pos(705, 15)

@@ -1,7 +1,6 @@
 import argparse
 import time
 from itertools import cycle
-from typing import Optional
 
 from lib import Button
 from lib import Color
@@ -44,10 +43,6 @@ class Script(BDSPScript):
 	@property
 	def target(self) -> str:
 		return "Random"
-
-	def getName(self) -> Optional[str]:
-		self.waitAndRender(10)
-		return super().getName()
 
 	def main(self, e: int) -> tuple[int, Frame]:
 		tEnd = time.time()

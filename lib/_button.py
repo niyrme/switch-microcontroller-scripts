@@ -1,6 +1,8 @@
 from enum import Enum
+from typing import final
 
 
+@final
 class Button(Enum):
 	EMPTY = "0"
 	BUTTON_A = "A"

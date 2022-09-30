@@ -1,9 +1,12 @@
+from typing import final
+
 import cv2
 import numpy
 
 from ._frame import Frame
 
 
+@final
 class Capture:
 	def __init__(self, *, width: int = 768, height: int = 480, fps: int = 30):
 		self._vidWidth = width

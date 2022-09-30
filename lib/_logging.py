@@ -1,4 +1,5 @@
 import logging
+from typing import Final
 
 
 _streamFmt = logging.Formatter("[%(levelname)s] %(asctime)s %(message)s", "%H:%M:%S")
@@ -20,7 +21,7 @@ _debugLogger = logging.getLogger("DEBUG")
 _debugLogger.addHandler(_debugFileHDLR)
 _debugLogger.setLevel(logging.DEBUG)
 
-LOG_TRACE = logging.DEBUG - 1
+LOG_TRACE: Final[int] = logging.DEBUG - 1
 logging.addLevelName(LOG_TRACE, "TRACE")
 
 _infoLogger = logging.getLogger("INFO")

@@ -1,6 +1,8 @@
+from typing import final
 from typing import Optional
 
 
+@final
 class ExecCrash(Exception):
 	"""
 	WIP
@@ -9,6 +11,7 @@ class ExecCrash(Exception):
 	"""
 
 
+@final
 class ExecLock(Exception):
 	"""
 	Used when the game "locks"
@@ -22,6 +25,7 @@ class ExecLock(Exception):
 		self.ctx = ctx
 
 
+@final
 class ExecStop(Exception):
 	"""Terminate script"""
 

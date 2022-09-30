@@ -5,8 +5,11 @@ import pathlib
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
+from typing import Final
+from typing import final
 from typing import Optional
 from typing import Type
+from typing import Union
 
 import lib
 from lib import Button
@@ -47,14 +50,17 @@ def _stripTD(delta: timedelta) -> timedelta:
 	return timedelta(days=delta.days, seconds=delta.seconds)
 
 
+@final
 class Runner(PokemonRunner):
 	def __init__(self, scriptClass: Type[BDSPScript], args: dict[str, Any], db: DB) -> None:
 		self.script: BDSPScript
 		super().__init__(scriptClass, args, db)
 
-		self.sendNth: int = args.pop("sendNth")
+		self.sendNth: Final[int] = args.pop("sendNth")
 
-		encountersStart: int = self.db.getOrInsert(self.key, 0)
+		stat: dict[str, Union[int, float]] = self.db.getOrInsert(self.key, {"encounters": 0, "totalTime": 0.0})
+		encountersStart = int(stat.pop("encounters"))
+		self._totalTime = float(stat.pop("totalTime"))
 
 		stopAt: Optional[int] = args.pop("stopAt")
 		if stopAt is not None:
@@ -66,9 +72,7 @@ class Runner(PokemonRunner):
 		self.encountersTotal = encountersStart
 		self.encountersCurrent = 0
 
-		self.stopAt = stopAt
-
-		self.scriptStart = datetime.now()
+		self.stopAt: Final[Optional[int]] = stopAt
 
 		self.crashes = 0
 		self.lastDuration = timedelta(0, 0)
@@ -85,6 +89,10 @@ class Runner(PokemonRunner):
 	@property
 	def encounters(self) -> int:
 		return self.encountersTotal
+
+	@property
+	def totalTime(self) -> float:
+		return self._totalTime + (datetime.now() - self.scriptStart).total_seconds()
 
 	def idle(self) -> None:
 		self.script.waitAndRender(5)
@@ -114,6 +122,9 @@ class Runner(PokemonRunner):
 
 	def onCrash(self, crash: lib.ExecCrash) -> RunnerAction:
 		self.crashes += 1
+
+		# to negate that +1 in runPost()
+		self.encountersCurrent -= 1
 
 		self.script.log(logging.WARNING, "script crashed, reset state and press Ctrl+C to continue")
 		self.script.sendMsg("Script crashed!")
@@ -161,7 +172,7 @@ class Runner(PokemonRunner):
 	def onShiny(self, shiny: ExecShiny) -> RunnerAction:
 		name = ("SHINY " + (self.script.getName() or "")).strip()
 
-		msg = f"found a {name.strip()} after {self.encountersTotal} encounters!"
+		msg = f"found a {name.strip()} after {self.encountersTotal + 1} encounters and {timedelta(seconds=self.totalTime)}!"
 
 		print("\a")
 
@@ -190,6 +201,7 @@ class Runner(PokemonRunner):
 
 		stats: list[tuple[str, Any]] = [
 			("Target", self.script.target),
+			("Total runtime", _stripTD(timedelta(seconds=self.totalTime))),
 			("Running for", _stripTD(runDuration)),
 			("Average per reset", _stripTD(avg)),
 			("Encounters", f"{self.encountersCurrent:>04}/{self.encountersTotal:>05}"),

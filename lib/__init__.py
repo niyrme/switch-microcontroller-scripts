@@ -11,6 +11,7 @@ from collections.abc import Generator
 from collections.abc import Sequence
 from typing import Any
 from typing import Callable
+from typing import Final
 from typing import final
 from typing import TypeVar
 
@@ -55,6 +56,7 @@ T = TypeVar("T")
 K = TypeVar("K")
 
 
+@final
 class RequirementsAction(argparse.Action):
 	def __init__(self, option_strings: Sequence[str], requirements: Sequence[str], **kwargs) -> None:
 		self.requirements = requirements
@@ -73,9 +75,9 @@ class Script:
 		self._ser = ser
 		self._cap = cap
 
-		self.windowName: str = kwargs.pop("windowName", "Game")
+		self.windowName: Final[str] = kwargs.pop("windowName", "Game")
 
-		self.renderCapture: bool = config.pop("renderCapture", True)
+		self.renderCapture: Final[bool] = config.pop("renderCapture", True)
 
 	def __call__(self, e: int) -> Any:
 		return self.main(e)
@@ -206,7 +208,7 @@ class Script:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
 
-		while all(map(lambda c: frame.colorAt(c[0]) == c[1], colors)):
+		while any(map(lambda c: frame.colorAt(c[0]) == c[1], colors)):
 			if time.time() > tEnd:
 				raise ExecLock
 			frame = self.getframe()
@@ -242,15 +244,13 @@ class Script:
 		frame = self.getframe()
 		tEnd = time.time() + timeout
 
-		self.logTrace(f"{timeout=}")
-
 		while not all(map(lambda c: self.nearColor(frame.colorAt(c[0]), c[1], distance), colors)):
 			for _pos, _c in colors:
 				_color = frame.colorAt(_pos)
 				_distance = _color.distance(_c)
 				self.logTrace(f"Pos: {str(_pos):<12} | Color: {str(_color):<16} | Distance: {_distance}")
 			if time.time() > tEnd:
-				raise ExecLock(f"did not find near colors ({(f'{c} at {p}' for p, c in colors)}) (distance: {distance})")
+				raise ExecLock(f"did not find near colors ({', '.join(f'{c} at {p}' for p, c in colors)}) (distance: {distance})")
 			frame = self.getframe()
 
 	@final
@@ -277,6 +277,42 @@ class Script:
 				tEnd = time.time() + delay
 			elif t > tStop:
 				raise ExecLock(f"did not find not color ({color}) at ({pos})")
+
+	@final
+	def whileColors(self, colors: tuple[tuple[Pos, Color], ...], delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
+		frame = self.getframe()
+
+		t = time.time()
+		tStep = time.time()
+		tTimeout = time.time() + timeout
+
+		while all(map(lambda c: frame.colorAt(c[0]) == c[1], colors)):
+			for _pos, _c in colors:
+				self.logTrace(f"Pos: {str(_pos):<12} | Color: {str(_color := frame.colorAt(_pos)):<16} | Distance: {_color.distance(_c)}")
+
+			if (t := time.time()) > tTimeout:
+				raise ExecLock(f"did not find colors ({', '.join(f'{c} at {p}' for p, c in colors)})")
+			elif t > tStep:
+				fn()
+				tStep = time.time() + delay
+
+	@final
+	def whileNotColors(self, colors: tuple[tuple[Pos, Color], ...], delay: float, fn: Callable[[], None], timeout: float = 90) -> None:
+		frame = self.getframe()
+
+		t = time.time()
+		tStep = time.time()
+		tTimeout = time.time() + timeout
+
+		while not all(map(lambda c: frame.colorAt(c[0]) == c[1], colors)):
+			for _pos, _c in colors:
+				self.logTrace(f"Pos: {str(_pos):<12} | Color: {str(_color := frame.colorAt(_pos)):<16} | Distance: {_color.distance(_c)}")
+
+			if (t := time.time()) > tTimeout:
+				raise ExecLock(f"did not find not colors ({', '.join(f'{c} at {p}' for p, c in colors)})")
+			elif t > tStep:
+				fn()
+				tStep = time.time() + delay
 
 	@final
 	def whileNearColor(self, pos: Pos, color: Color, distance: int, delay: float, fn: Callable[[], None], timeout: float = 90) -> None:

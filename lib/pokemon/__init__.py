@@ -1,8 +1,10 @@
 import logging
 import pathlib
 from abc import abstractmethod
+from datetime import datetime
 from enum import IntEnum
 from typing import Any
+from typing import Final
 from typing import final
 from typing import Optional
 from typing import Type
@@ -19,6 +21,7 @@ from lib import log
 from lib import Script
 
 
+@final
 class ExecShiny(Exception):
 	"""
 	Found a shiny pokemon
@@ -30,11 +33,11 @@ class ExecShiny(Exception):
 		self.encounterFrame = encounterFrame
 
 
-NamesPath = pathlib.Path(__file__).parent / "names"
+NamesPath: Final[pathlib.Path] = pathlib.Path(__file__).parent / "names"
 global Langs
-Langs = tuple(lang.name[:-4] for lang in NamesPath.iterdir())
+Langs: Final[tuple[str, ...]] = tuple(lang.name[:-4] for lang in NamesPath.iterdir())
 
-LOG_DELAY = logging.INFO - 1
+LOG_DELAY: Final[int] = logging.INFO - 1
 logging.addLevelName(LOG_DELAY, "DELAY")
 
 
@@ -46,14 +49,14 @@ class PokemonScript(Script):
 	def __init__(self, ser: serial.Serial, cap: Capture, config: dict[str, Any], **kwargs) -> None:
 		super().__init__(ser, cap, config, **kwargs)
 
-		self.configPokemon: dict[str, Any] = config.pop("pokemon")
-		self.notifyShiny: bool = self.configPokemon.pop("notifyShiny", False)
+		self.configPokemon: Final[dict[str, Any]] = config.pop("pokemon")
+		self.notifyShiny: Final[bool] = self.configPokemon.pop("notifyShiny", False)
 
 		tempLang: Optional[str] = kwargs.pop("tempLang", None)
 		lang: str = tempLang or self.configPokemon.pop("lang")
 
 		with open(f"{NamesPath}/{lang}.txt", "r") as f:
-			self._names = set(f.readlines())
+			self._names: Final[set[str]] = set(f.readlines())
 		self.logDebug(f"language used for text recognition: {lang}")
 
 	@property
@@ -62,6 +65,7 @@ class PokemonScript(Script):
 		raise NotImplementedError
 
 
+@final
 class RunnerAction(IntEnum):
 	Stop = 0
 	Continue = 1
@@ -72,12 +76,14 @@ class PokemonRunner:
 		with open(args.pop("configFile"), "r") as fp:
 			cfg: dict[str, Any] = yaml.safe_load(fp)
 
-		self.db = db
-		self.serial = serial.Serial(cfg.pop("serialPort", "COM0"), 9600)
+		self.db: Final[DB] = db
+		self.serial: Final[serial.Serial] = serial.Serial(cfg.pop("serialPort", "COM0"), 9600)
 
-		self.script = self._setup(scriptClass, cfg, args)
+		self.script: PokemonScript = self._setup(scriptClass, cfg, args)
 
-		self._runs: list[float] = []
+		self._runs: Final[list[float]] = []
+
+		self._scriptStart = datetime.now()
 
 	def _setup(self, scriptClass: Type[PokemonScript], config: dict[str, Any], args: dict[str, Any]) -> PokemonScript:
 		log(logging.INFO, "setting up cv2. This may take a while...")
@@ -94,8 +100,18 @@ class PokemonRunner:
 
 	@final
 	@property
+	def scriptStart(self) -> datetime:
+		return self._scriptStart
+
+	@final
+	@property
 	def target(self) -> str:
 		return self.script.target
+
+	@property
+	@abstractmethod
+	def totalTime(self) -> float:
+		raise NotImplementedError
 
 	@property
 	@abstractmethod
@@ -136,6 +152,7 @@ class PokemonRunner:
 	def stats(self) -> tuple[tuple[str, Any], ...]:
 		raise NotImplementedError
 
+	@final
 	@property
 	def runs(self) -> list[float]:
 		return self._runs

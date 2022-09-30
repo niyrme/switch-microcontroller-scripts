@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from typing import final
 from typing import NamedTuple
 
 
+@final
 class Color(NamedTuple):
 	r: int
 	g: int

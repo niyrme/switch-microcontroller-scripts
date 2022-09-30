@@ -1,9 +1,12 @@
+from typing import final
+
 import numpy
 
 from ._color import Color
 from ._pos import Pos
 
 
+@final
 class Frame:
 	def __init__(self, frame: numpy.ndarray) -> None:
 		self._frame = frame
