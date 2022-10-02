@@ -88,10 +88,13 @@ def _run(runnerClass: Type[PokemonRunner], scriptClass: Type[PokemonScript], arg
 						print(f"Invalid command: {cmd}")
 			finally:
 				runner.runPost()
+
+			runner.db.set(runner.key, {"encounters": runner.encounters, "totalTime": round(runner.totalTime, 3)})
+
 			if action == RunnerAction.Continue:
 				continue
 			elif action == RunnerAction.Stop:
-				raise lib.ExecStop(runner.encounters)
+				break
 	except lib.ExecStop as stop:
 		encounters: int = stop.encounters or runner.encounters
 		runner.db.set(runner.key, {"encounters": encounters, "totalTime": round(runner.totalTime, 3)})
