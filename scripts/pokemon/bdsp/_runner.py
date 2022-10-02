@@ -176,7 +176,7 @@ class Runner(PokemonRunner):
 
 		print("\a")
 
-		self.script._maxDelay = True
+		self.script._maxDelay = 0.0
 		self.script.logInfo(msg)
 		self.script.sendMsg(msg)
 		self.script.sendScreenshot(shiny.encounterFrame)

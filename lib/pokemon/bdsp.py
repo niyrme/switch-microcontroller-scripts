@@ -253,19 +253,7 @@ class BDSPScript(PokemonScript):
 		self.waitAndRender(1)
 
 	def getName(self) -> Optional[str]:
-		self.whileNotColors(
-			(
-				(OWN_POKEMON_POS, Color.White()),
-				(Pos(710, 50), Color.White()),
-				(Pos(636, 33), Color.White()),
-				(Pos(78, 444), Color.White()),
-				(Pos(155, 444), Color.White()),
-			),
-			0.5,
-			lambda: self.press(Button.BUTTON_B),
-		)
-
-		self.waitAndRender(1)
+		self.waitAndRender(20)
 
 		frame = cv2.cvtColor(self.getframe().ndarray, cv2.COLOR_BGR2GRAY)
 		cv2.imwrite("logs/shinyFrame.png", frame)
