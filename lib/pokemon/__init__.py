@@ -1,3 +1,4 @@
+import csv
 import logging
 import pathlib
 from abc import abstractmethod
@@ -33,9 +34,10 @@ class ExecShiny(Exception):
 		self.encounterFrame = encounterFrame
 
 
-NamesPath: Final[pathlib.Path] = pathlib.Path(__file__).parent / "names"
+DexPath: Final[pathlib.Path] = pathlib.Path(__file__).parent / "dex.csv"
+
 global Langs
-Langs: Final[tuple[str, ...]] = tuple(lang.name[:-4] for lang in NamesPath.iterdir())
+Langs: Final[set[str]] = {"en", "de", "fr"}
 
 LOG_DELAY: Final[int] = logging.INFO - 1
 logging.addLevelName(LOG_DELAY, "DELAY")
@@ -55,8 +57,10 @@ class PokemonScript(Script):
 		tempLang: Optional[str] = kwargs.pop("tempLang", None)
 		lang: str = tempLang or self.configPokemon.pop("lang")
 
-		with open(f"{NamesPath}/{lang}.txt", "r") as f:
-			self._names: Final[set[str]] = set(f.readlines())
+		with open(DexPath, "r") as f:
+			y = f"name-{lang}"
+			self._names: Final[set[str]] = set(n[y] for n in csv.DictReader(f))
+
 		self.logDebug(f"language used for text recognition: {lang}")
 
 	@property
