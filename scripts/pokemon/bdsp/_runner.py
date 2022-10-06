@@ -56,6 +56,9 @@ class Runner(PokemonRunner):
 		self.script: BDSPScript
 		super().__init__(scriptClass, args, db)
 
+		self._target = self.script.target
+		log(logging.INFO, f"Target: {self._target}")
+
 		self.sendNth: Final[int] = args.pop("sendNth")
 
 		stat: dict[str, Union[int, float]] = self.db.getOrInsert(self.key, {"encounters": 0, "totalTime": 0.0})
@@ -84,7 +87,7 @@ class Runner(PokemonRunner):
 
 	@property
 	def key(self) -> str:
-		return f"pokemon.bdsp.{self.script.target.lower()}"
+		return f"pokemon.bdsp.{self._target.lower()}"
 
 	@property
 	def encounters(self) -> int:
@@ -172,7 +175,8 @@ class Runner(PokemonRunner):
 	def onShiny(self, shiny: ExecShiny) -> RunnerAction:
 		name = ("SHINY " + (self.script.getName() or "")).strip()
 
-		msg = f"found a {name.strip()} after {self.encountersTotal + 1} encounters and {timedelta(seconds=self.totalTime)}!"
+		dur = _stripTD(timedelta(seconds=self.totalTime))
+		msg = f"found a {name.strip()} after {self.encountersTotal + 1} encounters and {dur}!"
 
 		print("\a")
 
@@ -200,7 +204,7 @@ class Runner(PokemonRunner):
 		avg = timedelta(seconds=sum(self.runs) / (len(self.runs) or 1))
 
 		stats: list[tuple[str, Any]] = [
-			("Target", self.script.target),
+			("Target", self._target),
 			("Total runtime", _stripTD(timedelta(seconds=self.totalTime))),
 			("Running for", _stripTD(runDuration)),
 			("Average per reset", _stripTD(avg)),
