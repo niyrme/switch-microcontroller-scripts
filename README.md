@@ -24,6 +24,3 @@ A repo containing my scripts running on the base of [this repository](https://gi
 - To see all available scripts run `python3 -m scripts <game> <module> -h`
 - To see the requirements for a script to run (successfully), add the `-r`/`--requirements` flag after the script
   - Example: `python3 -m scripts pokemon bdsp arceus -r`
-
-# Contribute
-Additions to `lib/pokemon/langs` are welcome. But please try to keep special symbols out of the names (like ♀/♂ from Nidoran)
