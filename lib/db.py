@@ -18,8 +18,7 @@ class DB:
 		def _getR(keys: list[str]) -> Any:
 			nonlocal jsn
 
-			k = keys.pop(0)
-			jsn = jsn[k]
+			jsn = jsn[keys.pop(0)]
 
 			if len(keys) == 0:
 				return jsn

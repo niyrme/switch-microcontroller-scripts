@@ -88,8 +88,7 @@ class BDSPScript(PokemonScript):
 			(ENCOUNTER_DIALOG_POS_2, Color.White()),
 		))
 
-		diff = round(time.time() - t0, 3)
-		self._lastDelay = diff
+		self._lastDelay = diff = round(time.time() - t0, 3)
 
 		self.log(LOG_DELAY, f"dialog delay: {diff:.3f}s")
 		print(f"dialog delay: {diff}s")
@@ -173,8 +172,7 @@ class BDSPScript(PokemonScript):
 			self.waitAndRender(1)
 
 			if encounter is True:
-				self.logDebug(f"found after reloading area {areaReloads} times")
-				self.logDebug("roamer in area")
+				self.logDebug(f"roamer found after reloading area {areaReloads} times")
 				self.press(Button.L_UP, 0.3)
 				self.waitAndRender(0.1)
 

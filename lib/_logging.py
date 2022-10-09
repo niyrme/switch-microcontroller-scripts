@@ -38,6 +38,7 @@ LOGGERS = [
 
 
 def log(level: int, msg: str) -> None:
+	global LOGGERS
 	for lgr in LOGGERS:
 		lgr.log(level, msg)
 

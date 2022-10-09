@@ -43,8 +43,7 @@ def shh(ser: serial.Serial) -> Generator[None, None, None]:
 
 def loadJson(filePath: str) -> dict[str, Any]:
 	with open(filePath, "r+") as f:
-		data: dict[str, Any] = json.load(f)
-	return data
+		return json.load(f)
 
 
 def dumpJson(filePath: str, data: dict[Any, Any]) -> None:
@@ -366,7 +365,6 @@ class Script:
 	@final
 	def sendScreenshot(self, frame: Frame) -> None:
 		with tempfile.TemporaryDirectory() as tempDirName:
-			p = f"{tempDirName}/screenshot.png"
-			cv2.imwrite(p, frame.ndarray)
-			with open(p, "rb") as img:
+			cv2.imwrite((path := f"{tempDirName}/screenshot.png"), frame.ndarray)
+			with open(path, "rb") as img:
 				self._sendTelegram(images=(img,))

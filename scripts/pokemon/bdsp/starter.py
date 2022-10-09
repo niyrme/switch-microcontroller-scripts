@@ -24,7 +24,7 @@ class Script(BDSPScript):
 	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 
-		self._target = kwargs.pop("target")
+		self._target: str = kwargs.pop("target")
 		self._starterOffset = {
 			"Turtwig": 0,
 			"Chimchar": 1,
@@ -33,9 +33,7 @@ class Script(BDSPScript):
 
 	@property
 	def extraStats(self) -> tuple[tuple[str, Any], ...]:
-		return super().extraStats + (
-			("Resetting for", self._target),
-		)
+		return super().extraStats + (("Resetting for", self._target),)
 
 	@property
 	def target(self) -> str:
