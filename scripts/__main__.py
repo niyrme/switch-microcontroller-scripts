@@ -11,13 +11,11 @@ def main() -> int:
 	parser.add_argument("-c", "--config-file", type=str, dest="configFile", default="config.yaml", help="configuration file (defualt: %(default)s)")
 	parser.add_argument("-t", "--trace", action="store_true", default="trace")
 
-	path = pathlib.Path(__file__)
-
 	gamesParsers = None
 
 	for _game in filter(
 		lambda p: p.is_dir() and not p.name.startswith("_"),
-		path.parent.iterdir(),
+		pathlib.Path(__file__).parent.iterdir(),
 	):
 		_gamePath = f"scripts.{_game.name}._runner"
 
@@ -36,22 +34,11 @@ def main() -> int:
 
 	args = vars(parser.parse_args())
 
-	Nth = args["sendNth"]
-	_Nth = str(Nth)
+	log(logging.DEBUG, f"{args=}")
 
 	if args.pop("trace") is True:
 		from lib._logging import addTrace
 		addTrace()
-
-	if Nth >= 2:
-		for (n, s) in ((("11", "12", "13"), "th"), ("1", "st"), ("2", "nd"), ("3", "rd")):
-			if _Nth.endswith(n):
-				m = s
-				break
-		else:
-			m = "th"
-
-		log(logging.INFO, f"sending screenshot of every {Nth}{m} encounter")
 
 	runnerPath = f"scripts.{args.pop('game')}._runner"
 

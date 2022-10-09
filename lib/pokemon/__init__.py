@@ -114,7 +114,7 @@ class PokemonRunner:
 
 	@property
 	@abstractmethod
-	def totalTime(self) -> float:
+	def totalTime(self) -> int:
 		raise NotImplementedError
 
 	@property

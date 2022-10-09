@@ -89,7 +89,7 @@ def _run(runnerClass: Type[PokemonRunner], scriptClass: Type[PokemonScript], arg
 			finally:
 				runner.runPost()
 
-			runner.db.set(runner.key, {"encounters": runner.encounters, "totalTime": round(runner.totalTime, 3)})
+			runner.db.set(runner.key, {"encounters": runner.encounters, "totalTime": runner.totalTime})
 
 			if action == RunnerAction.Continue:
 				continue
@@ -97,7 +97,7 @@ def _run(runnerClass: Type[PokemonRunner], scriptClass: Type[PokemonScript], arg
 				break
 	except lib.ExecStop as stop:
 		encounters: int = stop.encounters or runner.encounters
-		runner.db.set(runner.key, {"encounters": encounters, "totalTime": round(runner.totalTime, 3)})
+		runner.db.set(runner.key, {"encounters": encounters, "totalTime": runner.totalTime})
 	finally:
 		runner.script.press(Button.EMPTY)
 		log(logging.INFO, f"saved encounters: {runner.db.get(f'{runner.key}.encounters')}")
@@ -113,6 +113,18 @@ def run(args: dict[str, Any]) -> int:
 
 	if args.pop("shinyDelay") is True:
 		logging.getLogger("INFO").setLevel(LOG_DELAY)
+
+	if (nth := args["sendNth"]) >= 2:
+		_n = str(nth)
+
+		for (n, s) in ((("11", "12", "13"), "th"), ("1", "st"), ("2", "nd"), ("3", "rd")):
+			if _n.endswith(n):
+				m = s
+				break
+		else:
+			m = "th"
+
+		log(logging.INFO, f"sending screenshot of every {nth}{m} encounter")
 
 	try:
 		scriptClass = importlib.import_module(modulePath).Script

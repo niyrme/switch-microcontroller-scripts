@@ -61,9 +61,9 @@ class Runner(PokemonRunner):
 
 		self.sendNth: Final[int] = args.pop("sendNth")
 
-		stat: dict[str, Union[int, float]] = self.db.getOrInsert(self.key, {"encounters": 0, "totalTime": 0.0})
+		stat: dict[str, Union[int, int]] = self.db.getOrInsert(self.key, {"encounters": 0, "totalTime": 0})
 		encountersStart = int(stat.pop("encounters"))
-		self._totalTime = float(stat.pop("totalTime"))
+		self._totalTime = int(stat.pop("totalTime"))
 
 		stopAt: Optional[int] = args.pop("stopAt")
 		if stopAt is not None:
@@ -94,8 +94,8 @@ class Runner(PokemonRunner):
 		return self.encountersTotal
 
 	@property
-	def totalTime(self) -> float:
-		return self._totalTime + (datetime.now() - self.scriptStart).total_seconds()
+	def totalTime(self) -> int:
+		return int(self._totalTime + (datetime.now() - self.scriptStart).total_seconds())
 
 	def idle(self) -> None:
 		self.script.waitAndRender(5)
