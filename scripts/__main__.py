@@ -2,6 +2,8 @@ import argparse
 import importlib
 import logging
 import pathlib
+from typing import Any
+from typing import Callable
 
 from lib import log
 
@@ -34,8 +36,6 @@ def main() -> int:
 
 	args = vars(parser.parse_args())
 
-	log(logging.DEBUG, f"{args=}")
-
 	if args.pop("trace") is True:
 		from lib._logging import addTrace
 		addTrace()
@@ -43,13 +43,15 @@ def main() -> int:
 	runnerPath = f"scripts.{args.pop('game')}._runner"
 
 	try:
-		return importlib.import_module(runnerPath).run(args)
+		runFn: Callable[[dict[str, Any]], int] = importlib.import_module(runnerPath).run
 	except ModuleNotFoundError:
 		log(logging.CRITICAL, f"Failed to get runner module from {runnerPath}")
 		return 1
 	except AttributeError:
 		log(logging.CRITICAL, f"Failed to get runner function from {runnerPath}")
 		return 1
+
+	return runFn(args)
 
 
 if __name__ == "__main__":
