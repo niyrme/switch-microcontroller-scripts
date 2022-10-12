@@ -91,12 +91,9 @@ class PokemonRunner:
 
 	def _setup(self, scriptClass: Type[PokemonScript], config: dict[str, Any], args: dict[str, Any]) -> PokemonScript:
 		log(logging.INFO, "setting up cv2. This may take a while...")
-		cap = Capture(width=768, height=480, fps=30)
+		cap = Capture(camID=config.pop("cameraID", 0), width=768, height=480, fps=30)
 
 		return scriptClass(self.serial, cap, config, **args, windowName="Pokermans")
-
-	def __del__(self):
-		self.serial.close()
 
 	@final
 	def __call__(self) -> None:
