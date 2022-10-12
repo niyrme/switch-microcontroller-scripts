@@ -72,7 +72,7 @@ class RequirementsAction(argparse.Action):
 class Script:
 	def __init__(self, ser: serial.Serial, cap: Capture, config: dict[str, Any], **kwargs) -> None:
 		self._ser = ser
-		self._cap = cap
+		self._cap: Capture = cap
 
 		self.windowName: Final[str] = kwargs.pop("windowName", "Game")
 
@@ -80,6 +80,11 @@ class Script:
 
 	def __call__(self, e: int) -> Any:
 		return self.main(e)
+
+	def __del__(self):
+		self._ser.close()
+		del self._ser
+		del self._cap
 
 	@property
 	def extraStats(self) -> tuple[tuple[str, Any], ...]:
@@ -368,3 +373,8 @@ class Script:
 			cv2.imwrite((path := f"{tempDirName}/screenshot.png"), frame.ndarray)
 			with open(path, "rb") as img:
 				self._sendTelegram(images=(img,))
+
+	@final
+	def sendVideo(self, vidPath: str) -> None:
+		with open(vidPath, "rb") as vid:
+			self._sendTelegram(videos=vid)

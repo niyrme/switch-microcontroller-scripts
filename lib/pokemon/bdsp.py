@@ -67,6 +67,8 @@ class BDSPScript(PokemonScript):
 		raise NotImplementedError
 
 	def checkShinyDialog(self, e: int, delay: float = 2) -> Frame:
+		self._cap.startCapture("encounter")
+
 		print("waiting for dialog")
 		self.logDebug("waiting for dialog")
 		self.awaitColors((

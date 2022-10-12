@@ -173,6 +173,8 @@ class Runner(PokemonRunner):
 		return RunnerAction.Continue
 
 	def onShiny(self, shiny: ExecShiny) -> RunnerAction:
+		self.script._cap.stopCapture()
+
 		name = ("SHINY " + (self.script.getName() or "")).strip()
 
 		dur = _stripTD(timedelta(seconds=self.totalTime))
@@ -197,7 +199,7 @@ class Runner(PokemonRunner):
 				return RunnerAction.Continue
 
 	@property
-	def stats(self) -> tuple[tuple[str, Any]]:
+	def stats(self) -> tuple[tuple[str, Any], ...]:
 		now = datetime.now()
 		runDuration = now - self.scriptStart
 

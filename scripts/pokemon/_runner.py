@@ -87,6 +87,7 @@ def _run(runnerClass: Type[PokemonRunner], scriptClass: Type[PokemonScript], arg
 					else:
 						print(f"Invalid command: {cmd}")
 			finally:
+				runner.script._cap.stopCapture()
 				runner.runPost()
 
 			runner.db.set(runner.key, {"encounters": runner.encounters, "totalTime": runner.totalTime})
@@ -102,6 +103,8 @@ def _run(runnerClass: Type[PokemonRunner], scriptClass: Type[PokemonScript], arg
 		runner.script.press(Button.EMPTY)
 		log(logging.INFO, f"saved encounters: {runner.db.get(f'{runner.key}.encounters')}")
 		log(logging.INFO, "script stopped")
+
+		del runner
 
 
 def run(args: dict[str, Any]) -> int:
@@ -153,6 +156,8 @@ def run(args: dict[str, Any]) -> int:
 	try:
 		_run(runnerClass, scriptClass, args, db)
 	except Exception as e:
+		import traceback
+		traceback.print_tb(None)
 		log(logging.ERROR, f'error: "{e}"')
 		try:
 			telegram_send.send(messages=(f"Program crashed: {e}",))
