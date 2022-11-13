@@ -23,6 +23,7 @@ from lib import ExecLock
 from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib import Pos
+from lib import ScriptT
 
 
 ENCOUNTER_DIALOG_POS_1: Final[Pos] = Pos(55, 400)
@@ -34,7 +35,7 @@ SHORT_DIALOG_POS_1: Final[Pos] = Pos(154, 400)
 SHORT_DIALOG_POS_2: Final[Pos] = Pos(560, 455)
 
 
-class BDSPScript(PokemonScript):
+class BDSPScript(PokemonScript[ScriptT]):
 	@abstractmethod
 	def main(self, e: int) -> tuple[int, Frame]:
 		raise NotImplementedError
@@ -48,18 +49,8 @@ class BDSPScript(PokemonScript):
 		self.showLastRunDuration: Final[bool] = self.configBDSP.pop("showLastRunDuration", False)
 		self.showBnp: Final[bool] = self.configBDSP.pop("showBnp", False)
 
-		self._showMaxDelay: Final[bool] = self.configBDSP.pop("showMaxDelay", False)
-		self._maxDelay: float = 0.0
-
-		self._showLastDelay: Final[bool] = self.configBDSP.pop("showLastDelay", False)
 		self._lastDelay: float = 0.0
-
-	@property
-	def extraStats(self) -> tuple[tuple[str, Any], ...]:
-		s: list[tuple[str, Any]] = []
-		if self._showLastDelay is True: s.append(("Last delay", f"{self._lastDelay}s"))
-		if self._showMaxDelay is True: s.append(("Max delay", f"{self._maxDelay}s"))
-		return super().extraStats + tuple(s)
+		self._maxDelay: float = 0.0
 
 	@property
 	@abstractmethod
@@ -91,8 +82,9 @@ class BDSPScript(PokemonScript):
 		))
 
 		self._lastDelay = diff = round(time.time() - t0, 3)
+		self._maxDelay = max(self._maxDelay, diff)
 
-		self.log(LOG_DELAY, f"dialog delay: {diff:.3f}s")
+		self.log(LOG_DELAY, f"dialog delay: {diff:>.03f}s")
 		print(f"dialog delay: {diff}s")
 
 		self.waitAndRender(0.5)
@@ -102,7 +94,6 @@ class BDSPScript(PokemonScript):
 		elif diff >= 89:
 			raise ExecLock("checking shiny dialog timed out")
 		else:
-			self._maxDelay = max(self._maxDelay, diff)
 			return encounterFrame
 
 	def awaitInGame(self) -> None:

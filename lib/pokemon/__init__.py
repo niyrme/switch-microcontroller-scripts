@@ -20,6 +20,7 @@ from lib import ExecLock
 from lib import Frame
 from lib import log
 from lib import Script
+from lib import ScriptT
 
 
 @final
@@ -43,7 +44,7 @@ LOG_DELAY: Final[int] = logging.INFO - 1
 logging.addLevelName(LOG_DELAY, "DELAY")
 
 
-class PokemonScript(Script):
+class PokemonScript(Script[ScriptT]):
 	@abstractmethod
 	def main(self, e: int) -> tuple[int, Frame]:
 		raise NotImplementedError

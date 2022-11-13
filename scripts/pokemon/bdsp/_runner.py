@@ -9,12 +9,12 @@ from typing import Final
 from typing import final
 from typing import Optional
 from typing import Type
-from typing import Union
 
 import lib
 from lib import Button
 from lib import Color
 from lib import DB
+from lib import Frame
 from lib import LOADING_SCREEN_POS
 from lib import log
 from lib import Pos
@@ -25,7 +25,7 @@ from lib.pokemon.bdsp import BDSPScript
 
 
 _scripsPath = pathlib.Path(__file__).parent
-_scripts = tuple(
+_scripts = (
 	s.name[:-3] for s in filter(
 		lambda p: p.is_file() and not p.name.startswith("_") and p.name.endswith(".py"),
 		_scripsPath.iterdir(),
@@ -37,7 +37,7 @@ Parser = argparse.ArgumentParser(add_help=False)
 _ScriptsParser = Parser.add_subparsers(dest="script")
 for script in _scripts:
 	try:
-		_p = importlib.import_module(f"scripts.pokemon.bdsp.{script}").Parser
+		_p: argparse.ArgumentParser = importlib.import_module(f"scripts.pokemon.bdsp.{script}").Parser
 	except ModuleNotFoundError:
 		log(logging.WARNING, f"failed to import {script}")
 	except AttributeError:
@@ -53,17 +53,17 @@ def _stripTD(delta: timedelta) -> timedelta:
 @final
 class Runner(PokemonRunner):
 	def __init__(self, scriptClass: Type[BDSPScript], args: dict[str, Any], db: DB) -> None:
-		self.script: BDSPScript
+		self.script: BDSPScript[tuple[int, Frame]]
 		super().__init__(scriptClass, args, db)
 
-		self._target = self.script.target
+		self._target: Final[str] = self.script.target
 		log(logging.INFO, f"Target: {self._target}")
 
 		self.sendNth: Final[int] = args.pop("sendNth")
 
-		stat: dict[str, Union[int, int]] = self.db.getOrInsert(self.key, {"encounters": 0, "totalTime": 0})
-		encountersStart = int(stat.pop("encounters"))
-		self._totalTime = int(stat.pop("totalTime"))
+		stat: dict[str, int] = self.db.getOrInsert(self.key, {"encounters": 0, "totalTime": 0})
+		encountersStart: Final[int] = stat.pop("encounters")
+		self._totalTime: Final[int] = stat.pop("totalTime")
 
 		stopAt: Optional[int] = args.pop("stopAt")
 		if stopAt is not None:
@@ -186,17 +186,18 @@ class Runner(PokemonRunner):
 		self.script.logInfo(msg)
 		self.script.sendMsg(msg)
 		self.script.sendScreenshot(shiny.encounterFrame)
+		try:
+			self.script.sendVideo("encounter.avi")
+		except FileNotFoundError:
+			pass
 
 		self.encountersTotal = shiny.encounter
-		try:
-			print("Press Ctrl+C for further actions")
-			while True:
-				self.script.waitAndRender(5)
-		except KeyboardInterrupt:
-			if input("continue? (y/n)").strip().lower() not in ("y", "yes"):
-				return RunnerAction.Stop
-			else:
-				return RunnerAction.Continue
+		print("Press Ctrl+C for further actions")
+		self.script.idle()
+		if input("continue? (y/n)").strip().lower() not in ("y", "yes"):
+			return RunnerAction.Stop
+		else:
+			return RunnerAction.Continue
 
 	@property
 	def stats(self) -> tuple[tuple[str, Any], ...]:
@@ -215,15 +216,15 @@ class Runner(PokemonRunner):
 		]
 
 		if self.stopAt is not None:
-			remainingEncounters = self.stopAt - self.encountersTotal
+			remainingEncounters: int = self.stopAt - self.encountersTotal
 			remainingTime = avg * remainingEncounters
-			estEnd = now + remainingTime
+			estEnd = (now + remainingTime).strftime("%Y/%m/%d - %H:%M:%S")
 
 			stats.extend((
 				("Stop at", self.stopAt),
 				("Remaining", remainingEncounters),
 				("Est. time remaining", _stripTD(remainingTime)),
-				("Est. end", estEnd.strftime("%Y/%m/%d - %H:%M:%S")),
+				("Est. end", estEnd),
 			))
 
 		if self.script.showLastRunDuration is True:
@@ -231,6 +232,11 @@ class Runner(PokemonRunner):
 
 		if self.script.showBnp is True:
 			stats.append(("B(n, p)", f"{((1 - ((4095 / 4096) ** self.encountersTotal)) * 100):.2f}%"))
+
+		_last = self.script._lastDelay
+		_max = self.script._maxDelay
+
+		stats.append(("Delays (last/max)", f"{_last:>.03f}s | {_max:>.03f}s"))
 
 		stats.extend(self.script.extraStats)
 

@@ -8,6 +8,4 @@ pokemon:
   bdsp:
     sendAllEncounters: false
     showBnp: false
-    showLastDelay: false
     showLastRunDuration: false
-    showMaxDelay: false

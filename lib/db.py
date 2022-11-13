@@ -1,5 +1,6 @@
 import json
 from typing import Any
+from typing import Final
 from typing import final
 
 import mergedeep
@@ -9,7 +10,7 @@ import mergedeep
 @final
 class DB:
 	def __init__(self, fileName: str) -> None:
-		self._fileName = fileName
+		self._fileName: Final[str] = fileName
 
 	def get(self, key: str) -> Any:
 		with open(self._fileName, "r") as fp:

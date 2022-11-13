@@ -13,6 +13,7 @@ from typing import Any
 from typing import Callable
 from typing import Final
 from typing import final
+from typing import Generic
 from typing import TypeVar
 
 import cv2
@@ -51,10 +52,6 @@ def dumpJson(filePath: str, data: dict[Any, Any]) -> None:
 		json.dump(data, f, indent="\t", sort_keys=True)
 
 
-T = TypeVar("T")
-K = TypeVar("K")
-
-
 @final
 class RequirementsAction(argparse.Action):
 	def __init__(self, option_strings: Sequence[str], requirements: Sequence[str], **kwargs) -> None:
@@ -69,7 +66,10 @@ class RequirementsAction(argparse.Action):
 		parser.exit()
 
 
-class Script:
+ScriptT = TypeVar("ScriptT")
+
+
+class Script(Generic[ScriptT]):
 	def __init__(self, ser: serial.Serial, cap: Capture, config: dict[str, Any], **kwargs) -> None:
 		self._ser = ser
 		self._cap: Capture = cap
@@ -78,7 +78,7 @@ class Script:
 
 		self.renderCapture: Final[bool] = config.pop("renderCapture", True)
 
-	def __call__(self, e: int) -> Any:
+	def __call__(self, e: int) -> ScriptT:
 		return self.main(e)
 
 	def __del__(self):
@@ -91,7 +91,7 @@ class Script:
 		return tuple()
 
 	@abstractmethod
-	def main(self, e: int) -> Any:
+	def main(self, e: int) -> ScriptT:
 		raise NotImplementedError
 
 	@final
