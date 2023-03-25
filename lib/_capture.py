@@ -18,8 +18,6 @@ _THREAD_VIDWRITE = "Thread-VideoWriter"
 class Capture:
 	def __init__(self, *, camID: int = 0, width: int = 768, height: int = 480, fps: int = 30) -> None:
 		"""
-		@param render whether to render the video capture
-		@param windowName name of the window which renders the capture
 		@param camID camera ID to read
 		@param width width of capture
 		@param height height of capture

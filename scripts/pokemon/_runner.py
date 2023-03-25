@@ -1,6 +1,7 @@
 import argparse
 import importlib
 import logging
+import pathlib
 from datetime import datetime
 from typing import Any
 from typing import Optional
@@ -11,7 +12,6 @@ import telegram
 import telegram_send
 
 import lib
-from .bdsp._runner import Parser as ParserBDSP
 from lib import Button
 from lib import DB
 from lib import log
@@ -30,7 +30,23 @@ Parser.add_argument("-e", "--encounter-file", type=str, dest="encounterFile", de
 Parser.add_argument("-n", "--send-nth-encounter", type=int, dest="sendNth", action="store", default=0, help="send every Nth encounter (must be 2 or higher; otherwise ignored)")
 Parser.add_argument("-S", "--stop-at", type=int, dest="stopAt", action="store", metavar="STOP", default=None, help="reset until encounters reach {%(metavar)s}; does nothing if set below current encounters (takes priority over --run-n-times)")
 Parser.add_argument("-A", "--auto-start", dest="autoStart", action="store_true", help="don't wait for Ctrl+C to start script")
-Parser.add_subparsers(dest="mod").add_parser("bdsp", parents=(ParserBDSP,))
+_modsParser = Parser.add_subparsers(dest="mod")
+
+for p in pathlib.Path(__file__).parent.iterdir():
+	modName = p.name
+	if not p.is_dir() or modName.startswith("_"):
+		continue
+
+	try:
+		_parser: argparse.ArgumentParser = importlib.import_module(f"scripts.pokemon.{modName}._runner").Parser
+	except ModuleNotFoundError:
+		log(logging.WARNING, f"failed to import {modName}")
+		raise
+	except AttributeError:
+		log(logging.WARNING, f"failed to get Parser from {modName}")
+		raise
+	else:
+		_modsParser.add_parser(modName, parents=(_parser,))
 
 
 def _printStats(stats: tuple[tuple[str, Any], ...]) -> None:
@@ -57,7 +73,7 @@ def _run(runnerClass: Type[PokemonRunner], scriptClass: Type[PokemonScript], arg
 			return
 
 	log(logging.INFO, "script started")
-	runner.script.sendMsg("Script started")
+	runner.script.sendMessage("Script started")
 
 	runner._scriptStart = datetime.now()
 

@@ -1,7 +1,9 @@
 import argparse
 import importlib
 import logging
+import os
 import pathlib
+import tempfile
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
@@ -9,6 +11,8 @@ from typing import Final
 from typing import final
 from typing import Optional
 from typing import Type
+
+import cv2
 
 import lib
 from lib import Button
@@ -82,9 +86,6 @@ class Runner(PokemonRunner):
 
 		self.runStart = datetime.now()
 
-	def __del__(self) -> None:
-		self.serial.close()
-
 	@property
 	def key(self) -> str:
 		return f"pokemon.bdsp.{self._target.lower()}"
@@ -104,16 +105,6 @@ class Runner(PokemonRunner):
 		self.runStart = datetime.now()
 		self.encountersTotal, encFrame = self.script(self.encountersTotal)
 
-		if (
-			self.script.sendAllEncounters is True or (
-				self.script.sendAllEncounters is False and
-				self.sendNth >= 2 and
-				self.encountersCurrent % self.sendNth == 0
-			)
-		):
-			self.script.logDebug("send screenshot")
-			self.script.sendScreenshot(encFrame)
-
 	def runPost(self) -> None:
 		self.lastDuration = datetime.now() - self.runStart
 		self._runs.append(self.lastDuration.total_seconds())
@@ -130,7 +121,7 @@ class Runner(PokemonRunner):
 		self.encountersCurrent -= 1
 
 		self.script.log(logging.WARNING, "script crashed, reset state and press Ctrl+C to continue")
-		self.script.sendMsg("Script crashed!")
+		self.script.sendMessage("Script crashed!")
 		self.script.idle()
 
 		self.script.waitAndRender(1)
@@ -158,7 +149,7 @@ class Runner(PokemonRunner):
 		ctx = f" (context: {lock.ctx})" if lock.ctx is not None else ""
 		msg = f"script locked up{ctx}"
 
-		self.script.sendMsg(msg)
+		self.script.sendMessage(msg)
 		self.script.log(logging.WARNING, msg)
 		self.script.log(logging.WARNING, "reset state and press Ctrl+C to continue")
 
@@ -175,21 +166,33 @@ class Runner(PokemonRunner):
 	def onShiny(self, shiny: ExecShiny) -> RunnerAction:
 		self.script._cap.stopCapture()
 
-		name = ("SHINY " + (self.script.getName() or "")).strip()
+		_name = self.script.getName()
+		name = ("SHINY " + (_name or "")).strip()
 
 		dur = _stripTD(timedelta(seconds=self.totalTime))
 		msg = f"found a {name.strip()} after {self.encountersTotal + 1} encounters and {dur}!"
 
 		print("\a")
 
+		fields: list[dict[str, Any]] = [
+			{"name": "Encounters", "value": str(self.encountersTotal + 1), "inline": True},
+			{"name": "Duration", "value": str(dur), "inline": True},
+		]
+		if _name is not None:
+			fields.insert(0, {"name": "Pokemon", "value": _name.strip(), "inline": True})
+
 		self.script._maxDelay = 0.0
+		with tempfile.TemporaryDirectory() as tempDirPath:
+			path = os.path.join(tempDirPath, "encounter.png")
+			cv2.imwrite(path, shiny.encounterFrame.ndarray)
+			self.script.discordEmbed({
+				"title": "SHINY!",
+				"description": f"Found a {name.strip()}",
+				"fields": fields,
+			})
 		self.script.logInfo(msg)
-		self.script.sendMsg(msg)
-		self.script.sendScreenshot(shiny.encounterFrame)
-		try:
-			self.script.sendVideo("encounter.avi")
-		except FileNotFoundError:
-			pass
+		self.script.sendMessage(msg)
+		self.script.sendImage(shiny.encounterFrame)
 
 		self.encountersTotal = shiny.encounter
 		print("Press Ctrl+C for further actions")
