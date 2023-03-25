@@ -4,7 +4,6 @@ import argparse
 import contextlib
 import json
 import logging
-import tempfile
 import time
 from abc import abstractmethod
 from collections.abc import Generator
@@ -18,8 +17,6 @@ from typing import TypeVar
 
 import cv2
 import serial
-import telegram
-import telegram_send
 
 from ._button import Button as Button
 from ._capture import Capture as Capture
@@ -34,6 +31,9 @@ from .db import DB as DB  # noqa: F401
 from .exceptions import ExecCrash as ExecCrash  # noqa: F401
 from .exceptions import ExecLock as ExecLock
 from .exceptions import ExecStop as ExecStop
+from .notify import Discord
+from .notify import Notifier
+from .notify import Telegram
 
 
 @contextlib.contextmanager
@@ -74,9 +74,30 @@ class Script(Generic[ScriptT]):
 		self._ser = ser
 		self._cap: Capture = cap
 
-		self.windowName: Final[str] = kwargs.pop("windowName", "Game")
+		self.windowName: Final = str(kwargs.pop("windowName", "Game"))
 
-		self.renderCapture: Final[bool] = config.pop("renderCapture", True)
+		self.renderCapture: Final = bool(config.pop("renderCapture", True))
+
+		self.notifier = Notifier()
+
+		notifyConfig: dict[str, dict[str, Any]] = config.pop("notify", {})
+
+		# Discord
+		discordConfig: dict[str, Any] = notifyConfig.pop("discord", {})
+		webhookConfig: dict[str, Any] = discordConfig.pop("webhook", {})
+		discordNotify: bool = webhookConfig.pop("doNotify", False)
+		if discordNotify is True:
+			discordUrl: str = webhookConfig.pop("url", "").strip()
+			if discordUrl != "":
+				self.notifier.add(Discord(discordUrl))
+			else:
+				self.log(logging.WARNING, "discord webhook set to notify, but webhook url is empty")
+		# Telegram
+
+		telegramConfig: dict[str, Any] = notifyConfig.pop("telegram", {})
+		telegramNotify: bool = telegramConfig.pop("doNotify", False)
+		if telegramNotify is True:
+			self.notifier.add(Telegram())
 
 	def __call__(self, e: int) -> ScriptT:
 		return self.main(e)
@@ -356,25 +377,17 @@ class Script(Generic[ScriptT]):
 		self.whileNotColor(LOADING_SCREEN_POS, Color.Black(), 0.5, lambda: self.press(Button.BUTTON_A))
 
 	@final
-	def _sendTelegram(self, **kwargs) -> None:
-		try:
-			telegram_send.send(**kwargs)
-		except telegram.error.NetworkError as e:
-			self.log(logging.WARNING, f"telegram_send: connection failed: {e}")
+	def sendMessage(self, msg: str, **kwargs) -> None:
+		self.notifier.sendMessage(msg, **kwargs)
 
 	@final
-	def sendMsg(self, msg: str) -> None:
-		self.logDebug(f"send telegram message: '{msg}'")
-		self._sendTelegram(messages=(msg,))
+	def sendImage(self, frame: Frame, **kwargs) -> None:
+		self.notifier.sendImage(frame, **kwargs)
 
 	@final
-	def sendScreenshot(self, frame: Frame) -> None:
-		with tempfile.TemporaryDirectory() as tempDirName:
-			cv2.imwrite((path := f"{tempDirName}/screenshot.png"), frame.ndarray)
-			with open(path, "rb") as img:
-				self._sendTelegram(images=(img,))
+	def sendTo(self, notifierName: str, **kwargs) -> None:
+		self.notifier.sendTo(notifierName, **kwargs)
 
 	@final
-	def sendVideo(self, vidPath: str) -> None:
-		with open(vidPath, "rb") as vid:
-			self._sendTelegram(videos=vid)
+	def discordEmbed(self, embed: dict[str, Any]) -> None:
+		self.notifier.sendTo(Discord.__name__, embeds=[embed])

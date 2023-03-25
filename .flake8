@@ -1,8 +1,10 @@
 [flake8]
 ignore =
-	E501 # Screens are big now
+	# Screens are big now
+	E501
 	E701
-	W191 # I like tabs more
+	# I like tabs more
+	W191
 	W504
 exclude =
 	venv

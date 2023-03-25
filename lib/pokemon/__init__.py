@@ -100,6 +100,9 @@ class PokemonRunner:
 	def __call__(self) -> None:
 		self.run()
 
+	def __del__(self) -> None:
+		self.serial.close()
+
 	@final
 	@property
 	def scriptStart(self) -> datetime:

@@ -1,3 +1,4 @@
+discordwebhook
 mergedeep
 numpy
 opencv-python

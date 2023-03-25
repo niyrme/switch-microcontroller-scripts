@@ -2,6 +2,14 @@ serialPort: COM0
 cameraID: 0
 renderCapture: true
 
+notify:
+  discord:
+    webhook:
+      doNotify: false
+      url:
+  telegram:
+    doNotify: false
+
 pokemon:
   lang: en
   notifyShiny: false
